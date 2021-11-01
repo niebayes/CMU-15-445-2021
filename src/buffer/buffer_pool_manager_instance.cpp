@@ -62,7 +62,7 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
     return false;
   }
 
-  assert(frame_id >= 0 && frame_id < pool_size_);
+  assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
   page = &pages_[frame_id];
   assert(page);
 
@@ -120,7 +120,7 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   }
 
   // found an unpinned frame!
-  assert(frame_id >= 0 && frame_id < pool_size_);
+  assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
   page = &pages_[frame_id];
   assert(page);
   assert(page->GetPinCount() == 0);
@@ -180,7 +180,7 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
 
   // if P exisis, fetch the in-memory page directly.
   if (frame_id != -1) {
-    assert(frame_id >= 0 && frame_id < pool_size_);
+    assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
     page = &pages_[frame_id];
     assert(page);
 
@@ -210,7 +210,7 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   }
 
   // found an unpinned frame!
-  assert(frame_id >= 0 && frame_id < pool_size_);
+  assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
   page = &pages_[frame_id];
   assert(page);
   assert(page->GetPinCount() == 0);
@@ -270,7 +270,7 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   }
 
   // get the page.
-  assert(frame_id >= 0 && frame_id < pool_size_);
+  assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
   Page* page = &pages_[frame_id];
   assert(page);
 
@@ -320,8 +320,8 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
     return false;
   }
 
-  assert(frame_id >= 0 && frame_id < pool_size_);
-  Page* page = &pages_[frame_id];
+  assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
+  page = &pages_[frame_id];
   assert(page);
 
   // decrement the pin count if it was pinned already.

@@ -18,7 +18,7 @@ LRUReplacer::LRUReplacer(size_t num_pages) {}
 
 LRUReplacer::~LRUReplacer() = default;
 
-bool LRUReplacer::Victim(frame_id_t *frame_id) { return false; }
+bool LRUReplacer::Victim(frame_id_t *frame_id) { return true; }
 
 void LRUReplacer::Pin(frame_id_t frame_id) {}
 
