@@ -14,6 +14,12 @@
 
 namespace bustub {
 
+// General Hints:
+// → Your LRUReplacer needs to check the "pinned" status of
+// a Page.
+// → If there are no pages touched since last sweep, then
+// return the lowest page id.
+
 LRUReplacer::LRUReplacer(size_t num_pages) {}
 
 LRUReplacer::~LRUReplacer() = default;

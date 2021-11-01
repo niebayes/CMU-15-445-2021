@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 // Add GEMM tests.
-// 
+//
 // niebayes 2021-11-01
 // niebayes@gmail.com
 
@@ -208,7 +208,7 @@ TEST(StarterTest, GEMMTest) {
   auto mat0 = std::make_unique<RowMatrix<int>>(1, 3);
   auto mat1 = std::make_unique<RowMatrix<int>>(3, 1);
   auto mat2 = std::make_unique<RowMatrix<int>>(1, 1);
-  
+
   mat0->FillFrom(source0);
   mat1->FillFrom(source1);
   mat2->FillFrom(source2);

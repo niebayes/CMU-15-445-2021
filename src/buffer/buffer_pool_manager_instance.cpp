@@ -50,11 +50,11 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   // Make sure you call DiskManager::WritePage!
 
-  Page* page{nullptr};
+  Page *page{nullptr};
   frame_id_t frame_id = -1;
 
   latch_.lock();
-  if (page_table_.count(page_id)) {
+  if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
   latch_.unlock();
@@ -82,7 +82,7 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
   /// TODO(bayes): protect the concurrent accessing of page table.
 
   /// TODO(bayes): replace this with structure binding.
-  for (const auto& p : page_table_) {
+  for (const auto &p : page_table_) {
     FlushPgImp(p.first);
   }
 }
@@ -104,11 +104,11 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   const page_id_t new_page_id = AllocatePage();
 
   // try to find an unpinned frame to be used as the data container.
-  Page* page{nullptr};
+  Page *page{nullptr};
   frame_id_t frame_id = -1;
-  
+
   // first, lookup the free list.
-  if (free_list_.size() > 0) {
+  if (!free_list_.empty()) {
     frame_id = free_list_.front();
     free_list_.pop_front();
   } else {
@@ -169,11 +169,11 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
 
-  Page* page{nullptr};
+  Page *page{nullptr};
 
   frame_id_t frame_id = -1;
   latch_.lock();
-  if (page_table_.count(page_id)) {
+  if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
   latch_.unlock();
@@ -194,11 +194,11 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     return page;
   }
 
-  // otherwise, P does not exist. 
+  // otherwise, P does not exist.
   // try to find an unpinned frame in which the fetched on-disk page is stored.
 
   // request a replacement frame from free list if it's not empty.
-  if (free_list_.size() > 0) {
+  if (!free_list_.empty()) {
     frame_id = free_list_.front();
     free_list_.pop_front();
   } else {
@@ -260,9 +260,9 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   // search the page table.
   frame_id_t frame_id = -1;
   latch_.lock();
-  if (page_table_.count(page_id)) {
+  if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
-  } 
+  }
   latch_.unlock();
   // P does not exist.
   if (frame_id == -1) {
@@ -271,7 +271,7 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
 
   // get the page.
   assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
-  Page* page = &pages_[frame_id];
+  Page *page = &pages_[frame_id];
   assert(page);
 
   // read its pin count.
@@ -307,12 +307,12 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
 }
 
 bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
-  Page* page{nullptr};
+  Page *page{nullptr};
   frame_id_t frame_id = -1;
 
   // check if the page is in the buffer pool.
   latch_.lock();
-  if (page_table_.count(page_id)) {
+  if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
   latch_.unlock();
@@ -337,7 +337,7 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   }
   // set the dirty flag.
   /// @bayes: the dirty flag only controls whether we should flush it to disk before reusing it.
-  ///         we can still evict a page even if it's dirty. 
+  ///         we can still evict a page even if it's dirty.
   page->is_dirty_ = is_dirty;
   page->WUnlatch();
 

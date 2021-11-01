@@ -101,10 +101,11 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   void FlushAllPgsImp() override;
 
   /**
-   * Allocate a page on disk. 
-   * @bayes: 
+   * Allocate a page on disk.
+   * @bayes:
    * 存在多个 buffer pool manager instance，每个 instance 有自己独有的 page id 分配池。
-   * 对于编号为 instance_index_ 的 instance 而言，它的分配池为集合 {id: id >= 0 && id % num_instances_ == instance_index_} 
+   * 对于编号为 instance_index_ 的 instance 而言，它的分配池为集合 {id: id >= 0 && id % num_instances_ ==
+   * instance_index_}
    * @return the id of the allocated page
    */
   page_id_t AllocatePage();
