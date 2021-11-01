@@ -49,11 +49,37 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 
 bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   // Make sure you call DiskManager::WritePage!
-  return false;
+
+  Page* page{nullptr};
+  frame_id_t frame_id = -1;
+
+  latch_.lock();
+  if (page_table_.count(page_id)) {
+    frame_id = page_table_.at(page_id);
+  }
+  latch_.unlock();
+  if (frame_id == -1) {
+    return false;
+  }
+
+  assert(frame_id >= 0 && frame_id < pool_size_);
+  page = &pages_[frame_id];
+  assert(page);
+
+  // flush the data to disk.
+  // dirty flag does not involve with flushing.
+  disk_manager_->WritePage(page_id, page->GetData());
+
+  return true;
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   // You can do it!
+
+  /// TODO(bayes): replace this with structure binding.
+  for (const auto& p : page_table_) {
+    FlushPgImp(p.first);
+  }
 }
 
 Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
