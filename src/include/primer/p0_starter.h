@@ -162,7 +162,7 @@ class RowMatrix : public Matrix<T> {
    */
   T GetElement(int i, int j) const override {
     if (i < 0 || i >= this->rows_ || j < 0 || j >= this->cols_) {
-      throw std::out_of_range("invalid index");
+      throw Exception(ExceptionType::OUT_OF_RANGE, "invalid index");
     }
     return data_[i][j];
   }
@@ -182,7 +182,7 @@ class RowMatrix : public Matrix<T> {
    */
   void SetElement(int i, int j, T val) override {
     if (i < 0 || i >= this->rows_ || j < 0 || j >= this->cols_) {
-      throw std::out_of_range("invalid index");
+      throw Exception(ExceptionType::OUT_OF_RANGE, "invalid index");
     }
     data_[i][j] = val;
   }
@@ -201,7 +201,7 @@ class RowMatrix : public Matrix<T> {
   void FillFrom(const std::vector<T> &source) override {
     const int dst_size = this->rows_ * this->cols_;
     if (static_cast<int>(source.size()) != dst_size) {
-      throw std::out_of_range("incorrect source size");
+      throw Exception(ExceptionType::OUT_OF_RANGE, "incorrect source size");
     }
 
     assert(this->linear_);
@@ -256,9 +256,9 @@ class RowMatrixOperations {
     }
 
     // check if the inputs are compatible.
-    const int rows_a = matrix_a->GetRowCount(); 
+    const int rows_a = matrix_a->GetRowCount();
     const int cols_a = matrix_a->GetColumnCount();
-    const int rows_b = matrix_b->GetRowCount(); 
+    const int rows_b = matrix_b->GetRowCount();
     const int cols_b = matrix_b->GetColumnCount();
     if (rows_a != rows_b || cols_a != cols_b) {
       return {nullptr};
@@ -290,9 +290,9 @@ class RowMatrixOperations {
     }
 
     // check if the inputs are compatible.
-    const int rows_a = matrix_a->GetRowCount(); 
+    const int rows_a = matrix_a->GetRowCount();
     const int cols_a = matrix_a->GetColumnCount();
-    const int rows_b = matrix_b->GetRowCount(); 
+    const int rows_b = matrix_b->GetRowCount();
     const int cols_b = matrix_b->GetColumnCount();
     if (cols_a != rows_b) {
       return {nullptr};
