@@ -10,6 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+// Add GEMM tests.
+// 
+// niebayes 2021-11-01
+// niebayes@gmail.com
+
 #include <functional>
 #include <numeric>
 
@@ -194,4 +199,29 @@ TEST(StarterTest, MultiplicationTest) {
     }
   }
 }
+
+TEST(StarterTest, GEMMTest) {
+  const std::vector<int> source0{1, 2, 3};
+  const std::vector<int> source1{1, 2, 3};
+  const std::vector<int> source2{16};
+
+  auto mat0 = std::make_unique<RowMatrix<int>>(1, 3);
+  auto mat1 = std::make_unique<RowMatrix<int>>(3, 1);
+  auto mat2 = std::make_unique<RowMatrix<int>>(1, 1);
+  
+  mat0->FillFrom(source0);
+  mat1->FillFrom(source1);
+  mat2->FillFrom(source2);
+
+  auto gemm_res = RowMatrixOperations<int>::GEMM(mat0.get(), mat1.get(), mat2.get());
+
+  const std::vector<int> expected{30};
+
+  for (int i = 0; i < gemm_res->GetRowCount(); ++i) {
+    for (int j = 0; j < gemm_res->GetColumnCount(); ++j) {
+      EXPECT_EQ(expected[i * gemm_res->GetColumnCount() + j], gemm_res->GetElement(i, j));
+    }
+  }
+}
+
 }  // namespace bustub
