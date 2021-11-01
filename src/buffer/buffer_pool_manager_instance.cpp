@@ -76,6 +76,8 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   // You can do it!
 
+  /// TODO(bayes): protect the concurrent accessing of page table.
+
   /// TODO(bayes): replace this with structure binding.
   for (const auto& p : page_table_) {
     FlushPgImp(p.first);
