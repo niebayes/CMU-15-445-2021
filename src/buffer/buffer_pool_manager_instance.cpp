@@ -90,7 +90,68 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   // 4.   Set the page ID output parameter. Return a pointer to P.
-  return nullptr;
+
+  /// @bayes: what does this method do?
+  /// It's used to buffer a new physical page.
+  /// Before flushed to disk, the newly created data are stored temporarily in the buffer pool.
+  /// NewPgImp looks for an unpinned frame and use it as the container to manage the data.
+
+  // allocate a new page id for the newly created physical page.
+  const page_id_t new_page_id = AllocatePage();
+
+  // try to find an unpinned frame to be used as the data container.
+  Page* page{nullptr};
+  frame_id_t frame_id = -1;
+  
+  // first, lookup the free list.
+  if (free_list_.size() > 0) {
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else {
+    // alternatively, try to evict one.
+    const bool success = replacer_->Victim(&frame_id);
+    if (!success) {
+      // failed to evict. No unpinned frame was found.
+      return nullptr;
+    }
+  }
+
+  // found an unpinned frame!
+  assert(frame_id >= 0 && frame_id < pool_size_);
+  page = &pages_[frame_id];
+  assert(page);
+  assert(page->GetPinCount() == 0);
+
+  // if the old page is dirty, flush it.
+  page_id_t old_page_id;
+  page->WLatch();
+  old_page_id = page->GetPageId();
+  if (page->IsDirty()) {
+    const bool success = FlushPgImp(old_page_id);
+    assert(success);
+    page->is_dirty_ = false;
+  }
+  page->WUnlatch();
+
+  // set the frame's metadata to make it track the new physical page.
+  page->WLatch();
+  // data is set by the application, not here.
+  page->ResetMemory();
+  page->page_id_ = new_page_id;
+  // pin the page on this frame.
+  ++page->pin_count_;
+  page->WUnlatch();
+
+  // erase the old mapping and insert the new mapping in the page table.
+  latch_.lock();
+  page_table_.erase(old_page_id);
+  page_table_.insert({new_page_id, frame_id});
+  latch_.unlock();
+
+  // set the output param.
+  *page_id = new_page_id;
+
+  return page;
 }
 
 Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
