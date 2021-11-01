@@ -102,7 +102,7 @@ class Matrix {
    * TODO(P0): Add implementation
    */
   virtual ~Matrix() {
-    if (not linear_) {
+    if (!linear_) {
       delete[] linear_;
       linear_ = nullptr;
     }
@@ -123,17 +123,17 @@ class RowMatrix : public Matrix<T> {
    * @param rows The number of rows
    * @param cols The number of columns
    */
-  ///@note dependent and non-dependent name.
-  ///@ref https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
+  /// @note dependent and non-dependent name.
+  /// @ref https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
   RowMatrix(int rows, int cols) : Matrix<T>(rows, cols) {
-
     // allocate
-    data_ = new T*[this->rows_];
+    data_ = new T *[this->rows_];
     assert(data_);
 
     // assign
-    for (int i = 0; i < this->rows_; ++i) 
+    for (int i = 0; i < this->rows_; ++i) {
       data_[i] = &this->linear_[i * this->cols_];
+    }
   }
 
   /**
@@ -161,15 +161,16 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if either index is out of range
    */
   T GetElement(int i, int j) const override {
-    if (i < 0 || i >= this->rows_ || j < 0 || j >= this->cols_) 
+    if (i < 0 || i >= this->rows_ || j < 0 || j >= this->cols_) {
       throw std::out_of_range("invalid index");
+    }
     return data_[i][j];
   }
 
-  /** 
-   * 
+  /**
+   *
    * TODO(P0): Add implementation
-   * 
+   *
    * Set the (i,j)th matrix element.
    *
    * Throw OUT_OF_RANGE if either index is out of range.
@@ -180,8 +181,9 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if either index is out of range
    */
   void SetElement(int i, int j, T val) override {
-    if (i < 0 || i >= this->rows_ || j < 0 || j >= this->cols_) 
+    if (i < 0 || i >= this->rows_ || j < 0 || j >= this->cols_) {
       throw std::out_of_range("invalid index");
+    }
     data_[i][j] = val;
   }
 
@@ -198,12 +200,14 @@ class RowMatrix : public Matrix<T> {
    */
   void FillFrom(const std::vector<T> &source) override {
     const int dst_size = this->rows_ * this->cols_;
-    if (static_cast<int>(source.size()) != dst_size) 
+    if (static_cast<int>(source.size()) != dst_size) {
       throw std::out_of_range("incorrect source size");
-    
+    }
+
     assert(this->linear_);
-    for (int i = 0; i < dst_size; ++i)
+    for (int i = 0; i < dst_size; ++i) {
       this->linear_[i] = source.at(i);
+    }
   }
 
   /**
@@ -238,25 +242,32 @@ template <typename T>
 class RowMatrixOperations {
  public:
   /**
-   * Compute (`matrixA` + `matrixB`) and return the result.
+   * Compute (`matrix_a` + `matrix_b`) and return the result.
    * Return `nullptr` if dimensions mismatch for input matrices.
-   * @param matrixA Input matrix
-   * @param matrixB Input matrix
+   * @param matrix_a Input matrix
+   * @param matrix_b Input matrix
    * @return The result of matrix addition
    */
-  static std::unique_ptr<RowMatrix<T>> Add(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
+  static std::unique_ptr<RowMatrix<T>> Add(const RowMatrix<T> *matrix_a, const RowMatrix<T> *matrix_b) {
     // TODO(P0): Add implementation
 
-    // check if the inputs are compatible.
-    const int rows_A = matrixA->GetRowCount(), cols_A = matrixA->GetColumnCount();
-    const int rows_B = matrixB->GetRowCount(), cols_B = matrixB->GetColumnCount();
-    if (rows_A != rows_B || cols_A != cols_B) 
+    if (!matrix_a || !matrix_b) {
       return {nullptr};
+    }
 
-    auto mat = std::make_unique<RowMatrix<T>>(rows_A, cols_A);
-    for (int i = 0; i < rows_A; ++i) {
-      for (int j = 0; j < cols_A; ++j) {
-        const T val = matrixA->GetElement(i, j) + matrixB->GetElement(i, j);
+    // check if the inputs are compatible.
+    const int rows_a = matrix_a->GetRowCount(); 
+    const int cols_a = matrix_a->GetColumnCount();
+    const int rows_b = matrix_b->GetRowCount(); 
+    const int cols_b = matrix_b->GetColumnCount();
+    if (rows_a != rows_b || cols_a != cols_b) {
+      return {nullptr};
+    }
+
+    auto mat = std::make_unique<RowMatrix<T>>(rows_a, cols_a);
+    for (int i = 0; i < rows_a; ++i) {
+      for (int j = 0; j < cols_a; ++j) {
+        const T val = matrix_a->GetElement(i, j) + matrix_b->GetElement(i, j);
         mat->SetElement(i, j, val);
       }
     }
@@ -265,27 +276,35 @@ class RowMatrixOperations {
   }
 
   /**
-   * Compute the matrix multiplication (`matrixA` * `matrixB` and return the result.
+   * Compute the matrix multiplication (`matrix_a` * `matrix_b` and return the result.
    * Return `nullptr` if dimensions mismatch for input matrices.
-   * @param matrixA Input matrix
-   * @param matrixB Input matrix
+   * @param matrix_a Input matrix
+   * @param matrix_b Input matrix
    * @return The result of matrix multiplication
    */
-  static std::unique_ptr<RowMatrix<T>> Multiply(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB) {
+  static std::unique_ptr<RowMatrix<T>> Multiply(const RowMatrix<T> *matrix_a, const RowMatrix<T> *matrix_b) {
     // TODO(P0): Add implementation
 
-    // check if the inputs are compatible.
-    const int rows_A = matrixA->GetRowCount(), cols_A = matrixA->GetColumnCount();
-    const int rows_B = matrixB->GetRowCount(), cols_B = matrixB->GetColumnCount();
-    if (cols_A != rows_B) 
+    if (!matrix_a || !matrix_b) {
       return {nullptr};
+    }
 
-    auto mat = std::make_unique<RowMatrix<T>>(rows_A, cols_B);
-    for (int i = 0; i < rows_A; ++i) {
-      for (int j = 0; j < cols_B; ++j) {
+    // check if the inputs are compatible.
+    const int rows_a = matrix_a->GetRowCount(); 
+    const int cols_a = matrix_a->GetColumnCount();
+    const int rows_b = matrix_b->GetRowCount(); 
+    const int cols_b = matrix_b->GetColumnCount();
+    if (cols_a != rows_b) {
+      return {nullptr};
+    }
+
+    auto mat = std::make_unique<RowMatrix<T>>(rows_a, cols_b);
+    for (int i = 0; i < rows_a; ++i) {
+      for (int j = 0; j < cols_b; ++j) {
         int sum = 0;
-        for (int k = 0; k < rows_B; ++k) 
-          sum += matrixA->GetElement(i, k) * matrixB->GetElement(k, j);
+        for (int k = 0; k < rows_b; ++k) {
+          sum += matrix_a->GetElement(i, k) * matrix_b->GetElement(k, j);
+        }
         mat->SetElement(i, j, sum);
       }
     }
@@ -294,24 +313,18 @@ class RowMatrixOperations {
   }
 
   /**
-   * Simplified General Matrix Multiply operation. Compute (`matrixA` * `matrixB` + `matrixC`).
+   * Simplified General Matrix Multiply operation. Compute (`matrix_a` * `matrix_b` + `matrix_c`).
    * Return `nullptr` if dimensions mismatch for input matrices.
-   * @param matrixA Input matrix
-   * @param matrixB Input matrix
-   * @param matrixC Input matrix
+   * @param matrix_a Input matrix
+   * @param matrix_b Input matrix
+   * @param matrix_c Input matrix
    * @return The result of general matrix multiply
    */
-  static std::unique_ptr<RowMatrix<T>> GEMM(const RowMatrix<T> *matrixA, const RowMatrix<T> *matrixB,
-                                            const RowMatrix<T> *matrixC) {
+  static std::unique_ptr<RowMatrix<T>> GEMM(const RowMatrix<T> *matrix_a, const RowMatrix<T> *matrix_b,
+                                            const RowMatrix<T> *matrix_c) {
     // TODO(P0): Add implementation
-    
-    auto mat = Multiply(matrixA, matrixB);
-    if (not mat) return {nullptr};
 
-    mat = Add(mat->get(), matrixC);
-    if (not mat) return {nullptr};
-
-    return mat;
+    return Add(Multiply(matrix_a, matrix_b), matrix_c);
   }
 };
 }  // namespace bustub
