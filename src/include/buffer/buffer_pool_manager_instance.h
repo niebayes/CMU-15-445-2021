@@ -147,7 +147,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** List of free pages. */
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
-  /// @bayes: this latch_ protects the accessing of the page table.
+  /// @bayes: this latch_ protects both the accessing of the page table and that of the free list.
   std::mutex latch_;
 };
 }  // namespace bustub

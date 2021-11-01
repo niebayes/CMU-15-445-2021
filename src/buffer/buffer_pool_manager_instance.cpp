@@ -293,7 +293,37 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   return true;
 }
 
-bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) { return false; }
+bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
+  Page* page{nullptr};
+  frame_id_t frame_id = -1;
+
+  // check if the page is in the buffer pool.
+  latch_.lock();
+  if (page_table_.count(page_id)) {
+    frame_id = page_table_.at(page_id);
+  }
+  latch_.unlock();
+  if (frame_id == -1) {
+    return false;
+  }
+
+  assert(frame_id >= 0 && frame_id < pool_size_);
+  Page* page = &pages_[frame_id];
+  assert(page);
+
+  // decrement the pin count if it was pinned already.
+  bool was_pinned = false;
+  page->WLatch();
+  if (page->GetPinCount() > 0) {
+    --page->pin_count_;
+    was_pinned = true;
+  }
+  // and set the dirty flag.
+  page->is_dirty_ = is_dirty;
+  page->WUnlatch();
+
+  return was_pinned;
+}
 
 page_id_t BufferPoolManagerInstance::AllocatePage() {
   const page_id_t next_page_id = next_page_id_;
