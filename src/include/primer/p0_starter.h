@@ -39,7 +39,6 @@ class Matrix {
    *
    */
   Matrix(int rows, int cols) : rows_{rows}, cols_{cols} {
-    assert(not linear_);
     linear_ = new T[rows_ * cols_];
     assert(linear_);
   }
@@ -124,28 +123,30 @@ class RowMatrix : public Matrix<T> {
    * @param rows The number of rows
    * @param cols The number of columns
    */
+  ///@note dependent and non-dependent name.
+  ///@ref https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
   RowMatrix(int rows, int cols) : Matrix<T>(rows, cols) {
+
     // allocate
-    assert(not data_);
-    data_ = new T*[rows_];
+    data_ = new T*[this->rows_];
     assert(data_);
 
     // assign
-    for (int i = 0; i < rows_; ++i) 
-      data_[i] = &linear_[i * cols_];
+    for (int i = 0; i < this->rows_; ++i) 
+      data_[i] = &this->linear_[i * this->cols_];
   }
 
   /**
    * TODO(P0): Add implementation
    * @return The number of rows in the matrix
    */
-  int GetRowCount() const override { return rows_ }
+  int GetRowCount() const override { return this->rows_; }
 
   /**
    * TODO(P0): Add implementation
    * @return The number of columns in the matrix
    */
-  int GetColumnCount() const override { return cols_; }
+  int GetColumnCount() const override { return this->cols_; }
 
   /**
    * TODO(P0): Add implementation
@@ -160,7 +161,7 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if either index is out of range
    */
   T GetElement(int i, int j) const override {
-    if (i < 0 || i >= rows_ || j < 0 || j >= cols_) 
+    if (i < 0 || i >= this->rows_ || j < 0 || j >= this->cols_) 
       throw std::out_of_range("invalid index");
     return data_[i][j];
   }
@@ -179,9 +180,9 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if either index is out of range
    */
   void SetElement(int i, int j, T val) override {
-    if (i < 0 || i >= rows_ || j < 0 || j >= cols_) 
+    if (i < 0 || i >= this->rows_ || j < 0 || j >= this->cols_) 
       throw std::out_of_range("invalid index");
-    data[i][j] = val;
+    data_[i][j] = val;
   }
 
   /**
@@ -196,13 +197,13 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if `source` is incorrect size
    */
   void FillFrom(const std::vector<T> &source) override {
-    const int dst_size = rows_ * cols_;
+    const int dst_size = this->rows_ * this->cols_;
     if (static_cast<int>(source.size()) != dst_size) 
       throw std::out_of_range("incorrect source size");
     
-    assert(linear_);
+    assert(this->linear_);
     for (int i = 0; i < dst_size; ++i)
-      linear_[i] = source.at(i);
+      this->linear_[i] = source.at(i);
   }
 
   /**
@@ -250,7 +251,7 @@ class RowMatrixOperations {
     const int rows_A = matrixA->GetRowCount(), cols_A = matrixA->GetColumnCount();
     const int rows_B = matrixB->GetRowCount(), cols_B = matrixB->GetColumnCount();
     if (rows_A != rows_B || cols_A != cols_B) 
-      return {nullptr}
+      return {nullptr};
 
     auto mat = std::make_unique<RowMatrix<T>>(rows_A, cols_A);
     for (int i = 0; i < rows_A; ++i) {
