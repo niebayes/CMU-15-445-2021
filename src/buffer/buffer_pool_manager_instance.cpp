@@ -66,9 +66,12 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   page = &pages_[frame_id];
   assert(page);
 
-  // flush the data to disk.
-  // dirty flag does not involve with flushing.
+  // flush the data to disk no matter the page is dirty or not.
   disk_manager_->WritePage(page_id, page->GetData());
+  // and the page is definitely not dirty after flushing.
+  page->WLatch();
+  page->is_dirty_ = false;
+  page->WUnlatch();
 
   return true;
 }
@@ -96,6 +99,7 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   /// Before flushed to disk, the newly created data are stored temporarily in the buffer pool.
   /// NewPgImp looks for an unpinned frame and use it as the container to manage the data.
 
+  /// FIXME(bayes): Should I do the allocation only after an unpinned frame was found?
   // allocate a new page id for the newly created physical page.
   const page_id_t new_page_id = AllocatePage();
 
@@ -109,8 +113,7 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
     free_list_.pop_front();
   } else {
     // alternatively, try to evict one.
-    const bool success = replacer_->Victim(&frame_id);
-    if (!success) {
+    if (!replacer_->Victim(&frame_id)) {
       // failed to evict. No unpinned frame was found.
       return nullptr;
     }
@@ -140,10 +143,13 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   page->page_id_ = new_page_id;
   // pin the page on this frame.
   ++page->pin_count_;
+  // inform the replacer.
+  replacer_->Pin(frame_id);
   page->WUnlatch();
 
   // erase the old mapping and insert the new mapping in the page table.
   latch_.lock();
+  /// @bayes: erase is no-op if the key does not exist.
   page_table_.erase(old_page_id);
   page_table_.insert({new_page_id, frame_id});
   latch_.unlock();
@@ -181,6 +187,8 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     // pin this page.
     page->WLatch();
     ++page->pin_count_;
+    // inform the replacer.
+    replacer_->Pin(frame_id);
     page->WUnlatch();
 
     return page;
@@ -230,6 +238,7 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   page->page_id_ = page_id;
   // pin the page on this frame.
   page->pin_count_ = 1;
+  replacer_->Pin(frame_id);
   page->ResetMemory();
   /// FIXME(bayes): Does the caller assure that the page exists on disk?
   disk_manager_->ReadPage(page_id, page->GetData());
@@ -290,6 +299,10 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   page->is_dirty_ = false;
   page->WUnlatch();
 
+  /// FIXME(bayes): should protect the accessing of free list.
+  // return it to free list.
+  free_list_.push_front(frame_id);
+
   return true;
 }
 
@@ -315,10 +328,16 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   bool was_pinned = false;
   page->WLatch();
   if (page->GetPinCount() > 0) {
-    --page->pin_count_;
     was_pinned = true;
+    // if this unpinning decrements the pin count to zero, no threads are using it.
+    // so send it to replacer.
+    if (--page->pin_count_ == 0) {
+      replacer_->Unpin(frame_id);
+    }
   }
-  // and set the dirty flag.
+  // set the dirty flag.
+  /// @bayes: the dirty flag only controls whether we should flush it to disk before reusing it.
+  ///         we can still evict a page even if it's dirty. 
   page->is_dirty_ = is_dirty;
   page->WUnlatch();
 
