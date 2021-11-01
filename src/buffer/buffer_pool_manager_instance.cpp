@@ -73,6 +73,79 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   // 2.     If R is dirty, write it back to the disk.
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
+
+  Page* page{nullptr};
+
+  frame_id_t frame_id = -1;
+  latch_.lock();
+  if (page_table_.count(page_id)) {
+    frame_id = page_table_.at(page_id);
+  }
+  latch_.unlock();
+
+  // if P exisis, fetch the in-memory page directly.
+  if (frame_id != -1) {
+    assert(frame_id >= 0 && frame_id < pool_size_);
+    page = &pages_[frame_id];
+    assert(page);
+
+    // pin this page.
+    page->WLatch();
+    ++page->pin_count_;
+    page->WUnlatch();
+
+    return page;
+  }
+
+  // otherwise, P does not exist. 
+  // try to find an unpinned frame in which the fetched on-disk page is stored.
+
+  // request a replacement frame from free list if it's not empty.
+  if (free_list_.size() > 0) {
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else {
+    // otherwise, try to evict one.
+    if (!replacer_->Victim(&frame_id)) {
+      // failed to evict.
+      return nullptr;
+    }
+  }
+
+  // found an unpinned frame!
+  assert(frame_id >= 0 && frame_id < pool_size_);
+  page = &pages_[frame_id];
+  assert(page);
+  assert(page->GetPinCount() == 0);
+
+  // if it's dirty, flush it to disk.
+  page_id_t old_page_id;
+  page->WLatch();
+  old_page_id = page->GetPageId();
+  if (page->IsDirty()) {
+    const bool success = FlushPgImp(old_page_id);
+    assert(success);
+    page->is_dirty_ = false;
+  }
+  page->WUnlatch();
+
+  // delete the page's corresponding entry from page table.
+  latch_.lock();
+  page_table_.erase(old_page_id);
+  // and insert the new mapping from the fetched physical page to the replacement frame.
+  page_table_.insert({page_id, frame_id});
+  latch_.unlock();
+
+  // update the frame's metadata and read data in from disk.
+  page->WLatch();
+  page->page_id_ = page_id;
+  // pin the page on this frame.
+  page->pin_count_ = 1;
+  page->ResetMemory();
+  /// FIXME(bayes): Does the caller assure that the page exists on disk?
+  disk_manager_->ReadPage(page_id, page->GetData());
+  page->WUnlatch();
+
   return nullptr;
 }
 
@@ -82,7 +155,53 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   // 1.   If P does not exist, return true.
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
-  return false;
+
+  // no-op.
+  DeallocatePage(page_id);
+
+  // search the page table.
+  frame_id_t frame_id = -1;
+  latch_.lock();
+  if (page_table_.count(page_id)) {
+    frame_id = page_table_.at(page_id);
+  } 
+  latch_.unlock();
+  // P does not exist.
+  if (frame_id == -1) {
+    return true;
+  }
+
+  // get the page.
+  assert(frame_id >= 0 && frame_id < pool_size_);
+  Page* page = &pages_[frame_id];
+  assert(page);
+
+  // read its pin count.
+  int pin_cnt;
+  page->RLatch();
+  pin_cnt = page->GetPinCount();
+  page->RUnlatch();
+
+  // check if we can thread-safely delete it.
+  assert(pin_cnt >= 0);
+  if (pin_cnt > 0) {
+    // no, someone else is using it.
+    return false;
+  }
+
+  // remove the page from page table.
+  latch_.lock();
+  page_table_.erase(page_id);
+  latch_.unlock();
+
+  // reset the page's data and metadata.
+  page->WLatch();
+  page->ResetMemory();
+  page->page_id_ = INVALID_PAGE_ID;
+  page->is_dirty_ = false;
+  page->WUnlatch();
+
+  return true;
 }
 
 bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) { return false; }

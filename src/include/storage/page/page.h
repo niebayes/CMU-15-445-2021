@@ -27,6 +27,7 @@ namespace bustub {
  */
 class Page {
   // There is book-keeping information inside the page that should only be relevant to the buffer pool manager.
+  /// @bayes: friend classes are allowed to access private members in this class.
   friend class BufferPoolManagerInstance;
 
  public:

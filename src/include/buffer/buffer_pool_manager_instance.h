@@ -101,7 +101,10 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   void FlushAllPgsImp() override;
 
   /**
-   * Allocate a page on disk.∂
+   * Allocate a page on disk. 
+   * @bayes: 
+   * 存在多个 buffer pool manager instance，每个 instance 有自己独有的 page id 分配池。
+   * 对于编号为 instance_index_ 的 instance 而言，它的分配池为集合 {id: id >= 0 && id % num_instances_ == instance_index_} 
    * @return the id of the allocated page
    */
   page_id_t AllocatePage();
@@ -111,7 +114,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
    * @param page_id id of the page to deallocate
    */
   void DeallocatePage(__attribute__((unused)) page_id_t page_id) {
-    // This is a no-nop right now without a more complex data structure to track deallocated pages
+    // This is a no-op right now without a more complex data structure to track deallocated pages
   }
 
   /**
@@ -128,7 +131,8 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** Index of this BPI in the parallel BPM (if present, otherwise just 0) */
   const uint32_t instance_index_ = 0;
   /** Each BPI maintains its own counter for page_ids to hand out, must ensure they mod back to its instance_index_ */
-  std::atomic<page_id_t> next_page_id_ = instance_index_;
+  // std::atomic<page_id_t> next_page_id_ = instance_index_;
+  page_id_t next_page_id_ = instance_index_;
 
   /** Array of buffer pool pages. */
   Page *pages_;
@@ -143,6 +147,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** List of free pages. */
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
+  /// @bayes: this latch_ protects the accessing of the page table.
   std::mutex latch_;
 };
 }  // namespace bustub
