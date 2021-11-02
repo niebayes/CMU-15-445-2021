@@ -16,9 +16,10 @@
 
 namespace bustub {
 
-LRUReplacer::LRUReplacer(size_t num_pages) {
-  // reserve space for hash map.
-  ump_.reserve(num_pages);
+/// @bayes: the order of init members is critical!
+LRUReplacer::LRUReplacer(size_t num_pages) : cap_{num_pages}, victim_ptr_{0}, insert_ptr_{0} {
+  frames_.resize(cap_, INVALID_PAGE_ID);
+  ump_.reserve(cap_);
 }
 
 LRUReplacer::~LRUReplacer() = default;
@@ -29,11 +30,15 @@ bool LRUReplacer::Victim(frame_id_t *frame_id) {
     return false;
   }
 
-  // evict the least recently used frame.
-  *frame_id = lst_.back();
-  lst_.pop_back();
-  ump_.erase(*frame_id);
-  assert(lst_.size() == ump_.size());
+  // search for a victim page.
+  while (frames_.at(victim_ptr_) == INVALID_PAGE_ID) {
+    step(&victim_ptr_);
+  }
+
+  // evict it and remove it from the hash map.
+  ump_.erase(frames_.at(victim_ptr_));
+  frames_.at(victim_ptr_) = INVALID_PAGE_ID;
+  step(&victim_ptr_);
 
   return true;
 }
@@ -44,17 +49,21 @@ void LRUReplacer::Pin(frame_id_t frame_id) {
     return;
   }
 
-  // remove the frame both from the hash map and the list.
-  lst_.erase(ump_.at(frame_id));
+  // remove the frame both from the hash map and the frame array.
+  frames_.at(ump_.at(frame_id)) = INVALID_PAGE_ID;
   ump_.erase(frame_id);
-  assert(lst_.size() == ump_.size());
 }
 
 void LRUReplacer::Unpin(frame_id_t frame_id) {
-  // add the newly unpinned both to the hash map and the list.
-  lst_.push_front(frame_id);
-  ump_[frame_id] = lst_.begin();
-  assert(lst_.size() == ump_.size());
+  // if the frame already exists.
+  if (ump_.count(frame_id) == 1) {
+    return;
+  }
+
+  // add the frame both in the hash map and the frame array.
+  frames_.at(insert_ptr_) = frame_id;
+  ump_[frame_id] = insert_ptr_;
+  step(&insert_ptr_);
 }
 
 size_t LRUReplacer::Size() { return ump_.size(); }
