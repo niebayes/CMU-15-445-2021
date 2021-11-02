@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// niebayes 2021-11-02
+// niebayes 2021-11-02 
 // niebayes@gmail.com
 
 #pragma once
@@ -52,17 +52,18 @@ class LRUReplacer : public Replacer {
  private:
   // TODO(student): implement me!
 
+  inline void Step(size_t *ptr) { *ptr = (*ptr + 1) % cap_; }
+
   // replacer capacity.
   const size_t cap_;
+  size_t victim_ptr_;  // find victim frame starts here.
+  size_t insert_ptr_;  // the next position to insert newly unpinned frames.
 
-  // head: most recently used. tail: least recently used.
-  std::list<frame_id_t> lst_;
+  // array of frames (ids).
+  std::vector<frame_id_t> frames_;
   // hash map for efficiently looking for frames.
-  using Iter = std::list<frame_id_t>::iterator;
-  std::unordered_map<frame_id_t, Iter> ump_;
-
-  // latch to mutex accessing of this replacer object.
-  std::mutex latch_;
+  // <frame_id, frame_idx_in_array>
+  std::unordered_map<frame_id_t, size_t> ump_;
 };
 
 }  // namespace bustub

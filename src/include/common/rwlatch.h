@@ -38,6 +38,7 @@ class ReaderWriterLatch {
    * Acquire a write latch.
    */
   void WLock() {
+    /// @bayes: if you need to acquire a mutex in a scope and might unlock it in the middle, use unique_lock.
     std::unique_lock<mutex_t> latch(mutex_);
     while (writer_entered_) {
       reader_.wait(latch);

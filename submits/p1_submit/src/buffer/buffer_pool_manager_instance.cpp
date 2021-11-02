@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// niebayes 2021-11-02
+// niebayes 2021-11-02 
 // niebayes@gmail.com
 
 #include "buffer/buffer_pool_manager_instance.h"
@@ -53,14 +53,14 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   // Make sure you call DiskManager::WritePage!
 
-  std::scoped_lock<std::mutex> lck{latch_};
-
   Page *page{nullptr};
   frame_id_t frame_id = -1;
 
+  latch_.lock();
   if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
+  latch_.unlock();
   if (frame_id == -1) {
     return false;
   }
@@ -70,32 +70,21 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   assert(page);
 
   // flush the data to disk no matter the page is dirty or not.
-  page->WLatch();
-  // cannot let others corrupt the page data when writing.
   disk_manager_->WritePage(page_id, page->GetData());
   // and the page is definitely not dirty after flushing.
   page->is_dirty_ = false;
-  page->WUnlatch();
 
   return true;
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   // You can do it!
-  std::scoped_lock<std::mutex> lck{latch_};
 
-  for (const auto &[page_id, frame_id] : page_table_) {
-    assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
-    Page *page = &pages_[frame_id];
-    assert(page);
+  /// TODO(bayes): protect the concurrent accessing of page table.
 
-    // flush the data to disk no matter the page is dirty or not.
-    page->WLatch();
-    // cannot let others corrupt the page data when writing.
-    disk_manager_->WritePage(page_id, page->GetData());
-    // and the page is definitely not dirty after flushing.
-    page->is_dirty_ = false;
-    page->WUnlatch();
+  /// TODO(bayes): replace this with structure binding.
+  for (const auto &p : page_table_) {
+    FlushPgImp(p.first);
   }
 }
 
@@ -110,8 +99,6 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   /// It's used to buffer a new physical page.
   /// Before flushed to disk, the newly created data are stored temporarily in the buffer pool.
   /// NewPgImp looks for an unpinned frame and use it as the container to manage the data.
-
-  std::scoped_lock<std::mutex> lck{latch_};
 
   /// FIXME(bayes): Should I do the allocation only after an unpinned frame was found?
   // allocate a new page id for the newly created physical page.
@@ -144,10 +131,8 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   page->WLatch();
   old_page_id = page->GetPageId();
   if (page->IsDirty()) {
-    // cannot let others corrupt the page data when writing.
-    disk_manager_->WritePage(old_page_id, page->GetData());
-    // and the page is definitely not dirty after flushing.
-    page->is_dirty_ = false;
+    const bool success = FlushPgImp(old_page_id);
+    assert(success);
   }
   page->WUnlatch();
 
@@ -163,9 +148,11 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   page->WUnlatch();
 
   // erase the old mapping and insert the new mapping in the page table.
+  latch_.lock();
   /// @bayes: erase is no-op if the key does not exist.
   page_table_.erase(old_page_id);
   page_table_.insert({new_page_id, frame_id});
+  latch_.unlock();
 
   // set the output param.
   *page_id = new_page_id;
@@ -182,14 +169,14 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
 
-  std::scoped_lock<std::mutex> lck{latch_};
-
   Page *page{nullptr};
 
   frame_id_t frame_id = -1;
+  latch_.lock();
   if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
+  latch_.unlock();
 
   // if P exisis, fetch the in-memory page directly.
   if (frame_id != -1) {
@@ -210,7 +197,6 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   // otherwise, P does not exist.
   // try to find an unpinned frame in which the fetched on-disk page is stored.
 
-  /// @bayes: search the free list first to minimize disk I/Os and hence better efficiency.
   // request a replacement frame from free list if it's not empty.
   if (!free_list_.empty()) {
     frame_id = free_list_.front();
@@ -234,17 +220,18 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   page->WLatch();
   old_page_id = page->GetPageId();
   if (page->IsDirty()) {
-    // cannot let others corrupt the page data when writing.
-    disk_manager_->WritePage(old_page_id, page->GetData());
-    // and the page is definitely not dirty after flushing.
+    const bool success = FlushPgImp(old_page_id);
+    assert(success);
     page->is_dirty_ = false;
   }
   page->WUnlatch();
 
   // delete the page's corresponding entry from page table.
+  latch_.lock();
   page_table_.erase(old_page_id);
   // and insert the new mapping from the fetched physical page to the replacement frame.
   page_table_.insert({page_id, frame_id});
+  latch_.unlock();
 
   // update the frame's metadata and read data in from disk.
   page->WLatch();
@@ -267,16 +254,16 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
 
-  std::scoped_lock<std::mutex> lck{latch_};
-
   // no-op.
   DeallocatePage(page_id);
 
   // search the page table.
   frame_id_t frame_id = -1;
+  latch_.lock();
   if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
+  latch_.unlock();
   // P does not exist.
   if (frame_id == -1) {
     return true;
@@ -301,7 +288,9 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   }
 
   // remove the page from page table.
+  latch_.lock();
   page_table_.erase(page_id);
+  latch_.unlock();
 
   // reset the page's data and metadata.
   page->WLatch();
@@ -318,15 +307,15 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
 }
 
 bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
-  std::scoped_lock<std::mutex> lck{latch_};
-
   Page *page{nullptr};
   frame_id_t frame_id = -1;
 
   // check if the page is in the buffer pool.
+  latch_.lock();
   if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
+  latch_.unlock();
   if (frame_id == -1) {
     return false;
   }
@@ -349,8 +338,7 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   // set the dirty flag.
   /// @bayes: the dirty flag only controls whether we should flush it to disk before reusing it.
   ///         we can still evict a page even if it's dirty.
-  /// @bayes: if it's already dirty, don't reset it!
-  page->is_dirty_ |= is_dirty;
+  page->is_dirty_ = is_dirty;
   page->WUnlatch();
 
   return was_pinned;
