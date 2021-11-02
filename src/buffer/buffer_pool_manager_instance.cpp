@@ -69,9 +69,7 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   // flush the data to disk no matter the page is dirty or not.
   disk_manager_->WritePage(page_id, page->GetData());
   // and the page is definitely not dirty after flushing.
-  page->WLatch();
   page->is_dirty_ = false;
-  page->WUnlatch();
 
   return true;
 }
@@ -132,7 +130,6 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   if (page->IsDirty()) {
     const bool success = FlushPgImp(old_page_id);
     assert(success);
-    page->is_dirty_ = false;
   }
   page->WUnlatch();
 
@@ -244,7 +241,7 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   disk_manager_->ReadPage(page_id, page->GetData());
   page->WUnlatch();
 
-  return nullptr;
+  return page;
 }
 
 bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
