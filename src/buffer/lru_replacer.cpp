@@ -36,6 +36,7 @@ bool LRUReplacer::Victim(frame_id_t *frame_id) {
   }
 
   // evict it and remove it from the hash map.
+  *frame_id = frames_.at(victim_ptr_);
   ump_.erase(frames_.at(victim_ptr_));
   frames_.at(victim_ptr_) = INVALID_PAGE_ID;
   step(&victim_ptr_);
