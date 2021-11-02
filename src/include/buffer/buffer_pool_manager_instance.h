@@ -18,6 +18,7 @@
 
 #include "buffer/buffer_pool_manager.h"
 #include "buffer/lru_replacer.h"
+#include "buffer/parallel_buffer_pool_manager.h"
 #include "recovery/log_manager.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/page/page.h"
@@ -28,6 +29,8 @@ namespace bustub {
  * BufferPoolManager reads disk pages to and from its internal buffer pool.
  */
 class BufferPoolManagerInstance : public BufferPoolManager {
+  friend class ParallelBufferPoolManager;
+
  public:
   /**
    * Creates a new BufferPoolManagerInstance.
@@ -135,7 +138,8 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** Array of buffer pool pages. */
   Page *pages_;
   /** Pointer to the disk manager. */
-  /// @bayes: unused attr to inform the compiler that we know this object may not be used. So please suppress unused warnings.
+  /// @bayes: unused attr to inform the compiler that we know this object may not be used. So please suppress unused
+  /// warnings.
   DiskManager *disk_manager_ __attribute__((__unused__));
   /** Pointer to the log manager. */
   LogManager *log_manager_ __attribute__((__unused__));

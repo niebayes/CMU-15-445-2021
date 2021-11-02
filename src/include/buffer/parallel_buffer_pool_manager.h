@@ -88,12 +88,9 @@ class ParallelBufferPoolManager : public BufferPoolManager {
    */
   void FlushAllPgsImp() override;
 
-  private:
-
-  using BPMInstance = BufferPoolManagerInstance;
-
+ private:
   // array of pointers of buffer pool manager instances.
-  BufferPoolManager** bpms_{nullptr};
+  BufferPoolManager **bpms_{nullptr};
   // number of buffer pool manager instances.
   const size_t num_instances_;
   // each buffer pool manager instance's pool size.

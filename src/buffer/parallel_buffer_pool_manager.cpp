@@ -22,19 +22,19 @@ ParallelBufferPoolManager::ParallelBufferPoolManager(size_t num_instances, size_
                                                      LogManager *log_manager)
     : num_instances_{num_instances}, pool_size_{pool_size}, round_robin_idx_{0} {
   // Allocate and create individual BufferPoolManagerInstances
-  bpms_ = new BufferPoolManager*[num_instances_];
+  bpms_ = new BufferPoolManager *[num_instances_];
   assert(bpms_);
-  for (int i = 0; i < num_instances_; ++i) {
+  for (size_t i = 0; i < num_instances_; ++i) {
     /// @bayes: static type: base class type; dynamic type: derived class type.
-    bpms_[i] = new BPMInstance(pool_size_, num_instances_, i, disk_manager, log_manager);
+    bpms_[i] = new BufferPoolManagerInstance(pool_size_, num_instances_, i, disk_manager, log_manager);
     assert(bpms_[i]);
   }
 }
 
 // Update destructor to destruct all BufferPoolManagerInstances and deallocate any associated memory
 ParallelBufferPoolManager::~ParallelBufferPoolManager() {
-  if (bpms_) {
-    for (int i = 0; i < num_instances_; ++i) {
+  if (bpms_ != nullptr) {
+    for (size_t i = 0; i < num_instances_; ++i) {
       delete bpms_[i];
       bpms_[i] = nullptr;
     }
@@ -61,8 +61,8 @@ BufferPoolManager *ParallelBufferPoolManager::GetBufferPoolManager(page_id_t pag
 
 Page *ParallelBufferPoolManager::FetchPgImp(page_id_t page_id) {
   // Fetch page for page_id from responsible BufferPoolManagerInstance
-  auto* bpm = GetBufferPoolManager(page_id);
-  if (!bpm) {
+  auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(GetBufferPoolManager(page_id));
+  if (bpm == nullptr) {
     return nullptr;
   }
   /// FIXME(bayes): why can't I access base class protected methods using a pointer of type base class?
@@ -71,8 +71,8 @@ Page *ParallelBufferPoolManager::FetchPgImp(page_id_t page_id) {
 
 bool ParallelBufferPoolManager::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   // Unpin page_id from responsible BufferPoolManagerInstance
-  auto* bpm = GetBufferPoolManager(page_id);
-  if (!bpm) {
+  auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(GetBufferPoolManager(page_id));
+  if (bpm == nullptr) {
     return false;
   }
 
@@ -81,8 +81,8 @@ bool ParallelBufferPoolManager::UnpinPgImp(page_id_t page_id, bool is_dirty) {
 
 bool ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) {
   // Flush page_id from responsible BufferPoolManagerInstance
-  auto* bpm = GetBufferPoolManager(page_id);
-  if (!bpm) {
+  auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(GetBufferPoolManager(page_id));
+  if (bpm == nullptr) {
     return false;
   }
 
@@ -96,12 +96,13 @@ Page *ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) {
   // starting index and return nullptr
   // 2.   Bump the starting index (mod number of instances) to start search at a different BPMI each time this function
   // is called
-  
-  Page* page{nullptr};
-  // each searching only runs a loop, i.e. num_instances_ time. 
+
+  Page *page{nullptr};
+  // each searching only runs a loop, i.e. num_instances_ time.
   // this is critical to ensure the system won't halt here too long.
-  for (int i = 0; i < num_instances_; ++i) {
-    if ((page = bpms_[round_robin_idx_++ % num_instances_]->NewPgImp(page_id))) {
+  for (size_t i = 0; i < num_instances_; ++i) {
+    page = dynamic_cast<BufferPoolManagerInstance *>(bpms_[round_robin_idx_++ % num_instances_])->NewPgImp(page_id);
+    if (page != nullptr) {
       break;
     }
   }
@@ -111,8 +112,8 @@ Page *ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) {
 
 bool ParallelBufferPoolManager::DeletePgImp(page_id_t page_id) {
   // Delete page_id from responsible BufferPoolManagerInstance
-  auto* bpm = GetBufferPoolManager(page_id);
-  if (!bpm) {
+  auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(GetBufferPoolManager(page_id));
+  if (bpm == nullptr) {
     return false;
   }
 
@@ -121,8 +122,8 @@ bool ParallelBufferPoolManager::DeletePgImp(page_id_t page_id) {
 
 void ParallelBufferPoolManager::FlushAllPgsImp() {
   // flush all pages from all BufferPoolManagerInstances
-  for (int i = 0; i < num_instances_; ++i) {
-    auto* bpm = bpms_[i];
+  for (size_t i = 0; i < num_instances_; ++i) {
+    auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(bpms_[i]);
     assert(bpm);
     bpm->FlushAllPgsImp();
   }
