@@ -44,6 +44,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
    * @param disk_manager the disk manager
    * @param log_manager the log manager (for testing only: nullptr = disable logging)
    */
+  /// @bayes: called by ParallelBufferPoolManager.
   BufferPoolManagerInstance(size_t pool_size, uint32_t num_instances, uint32_t instance_index,
                             DiskManager *disk_manager, LogManager *log_manager = nullptr);
 
