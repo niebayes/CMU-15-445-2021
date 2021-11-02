@@ -15,6 +15,7 @@
 #include <list>
 #include <mutex>  // NOLINT
 #include <vector>
+#include <unordered_map>
 
 #include "buffer/replacer.h"
 #include "common/config.h"
@@ -47,6 +48,12 @@ class LRUReplacer : public Replacer {
 
  private:
   // TODO(student): implement me!
+
+  // newly unpinned frames are inserted to the front.
+  // least recently used frames are fetched from the back.
+  std::list<frame_id_t> lst_;
+  // <frame_id, frame_pos_in_lst>
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> ump_;
 };
 
 }  // namespace bustub
