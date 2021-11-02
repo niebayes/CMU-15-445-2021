@@ -113,10 +113,6 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
 
   std::scoped_lock<std::mutex> lck{latch_};
 
-  /// FIXME(bayes): Should I do the allocation only after an unpinned frame was found?
-  // allocate a new page id for the newly created physical page.
-  const page_id_t new_page_id = AllocatePage();
-
   // try to find an unpinned frame to be used as the data container.
   Page *page{nullptr};
   frame_id_t frame_id = -1;
@@ -138,6 +134,9 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   page = &pages_[frame_id];
   assert(page);
   assert(page->GetPinCount() == 0);
+
+  // allocate a new page id for the newly created physical page.
+  const page_id_t new_page_id = AllocatePage();
 
   // if the old page is dirty, flush it.
   page_id_t old_page_id;

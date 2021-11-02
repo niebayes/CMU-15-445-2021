@@ -1,3 +1,5 @@
+#!/bin/bash
+
 zip project1-submission.zip \
     src/include/buffer/lru_replacer.h \
     src/buffer/lru_replacer.cpp \
