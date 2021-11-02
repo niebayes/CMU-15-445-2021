@@ -22,7 +22,7 @@ ParallelBufferPoolManager::ParallelBufferPoolManager(size_t num_instances, size_
   // Allocate and create individual BufferPoolManagerInstances
 }
 
-// Update constructor to destruct all BufferPoolManagerInstances and deallocate any associated memory
+// Update destructor to destruct all BufferPoolManagerInstances and deallocate any associated memory
 ParallelBufferPoolManager::~ParallelBufferPoolManager() = default;
 
 size_t ParallelBufferPoolManager::GetPoolSize() {

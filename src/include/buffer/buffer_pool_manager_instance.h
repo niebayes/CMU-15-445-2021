@@ -128,11 +128,13 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** Index of this BPI in the parallel BPM (if present, otherwise just 0) */
   const uint32_t instance_index_ = 0;
   /** Each BPI maintains its own counter for page_ids to hand out, must ensure they mod back to its instance_index_ */
+  /// @bayes: wrap the object to ensure atomic accessing. Only works for integral types.
   std::atomic<page_id_t> next_page_id_ = instance_index_;
 
   /** Array of buffer pool pages. */
   Page *pages_;
   /** Pointer to the disk manager. */
+  /// @bayes: unused attr to inform the compiler that we know this object may not be used. So please suppress unused warnings.
   DiskManager *disk_manager_ __attribute__((__unused__));
   /** Pointer to the log manager. */
   LogManager *log_manager_ __attribute__((__unused__));
