@@ -37,11 +37,11 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   page_id_t bucket_page_id{INVALID_PAGE_ID};
   assert(buffer_pool_manager_->NewPage(&bucket_page_id) != nullptr);
 
-	// link the first directory entry with the bucket page.
+  // link the first directory entry with the bucket page.
   dir_page->SetLocalDepth(0, 0);
   dir_page->SetBucketPageId(0, bucket_page_id);
 
-	//! debug.
+  //! debug.
   dir_page->VerifyIntegrity();
 
   // unpin pages. Marked as dirty to make them persistent.
@@ -203,7 +203,7 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   // those with high bit 0 stay in the overflowing bucket page.
   // those with high bit 1 are removed from the overflowing bucket page and reinserted to the split image.
   /// FIXME(bayes): Is it necessary to lock split_img as well?
-	bool move_occur{false};  // Did data moving happen?
+  bool move_occur{false};  // Did data moving happen?
   reinterpret_cast<Page *>(bucket_page)->WLatch();
   reinterpret_cast<Page *>(split_img)->WLatch();
   assert(bucket_page->IsFull());  // hence NumReadble = BUCKET_ARRAY_SIZE.
@@ -212,21 +212,21 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     if ((key_hash & high_bit) != 0) {
       assert(split_img->Insert(bucket_page->KeyAt(i), bucket_page->ValueAt(i), comparator_));
       bucket_page->RemoveAt(i);
-			move_occur |= true;
+      move_occur |= true;
     }
   }
   reinterpret_cast<Page *>(split_img)->WUnlatch();
   reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
-	// unpin pages.
+  // unpin pages.
   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, move_occur));
   assert(buffer_pool_manager_->UnpinPage(split_img_id, true));  // marked as dirty to be persistent.
 
-	table_latch_.WUnlock();
+  table_latch_.WUnlock();
 
-	// retry insertion.
-	return SplitInsert(transaction, key, value);
+  // retry insertion.
+  return SplitInsert(transaction, key, value);
 }
 
 /*****************************************************************************
@@ -234,7 +234,57 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  return false;
+  table_latch_.RLock();
+
+  auto *dir_page = FetchDirectoryPage();
+  const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
+  auto *bucket_page = FetchBucketPage(bucket_page_id);
+
+  // check if the key-value was found and removed.
+  reinterpret_cast<Page *>(bucket_page)->WLatch();
+  const bool removed = bucket_page->Remove(key, value, comparator_);
+  reinterpret_cast<Page *>(bucket_page)->WUnlatch();
+
+  if (!removed) {
+    // the key-value pair was not found.
+
+    // unpin pages.
+    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+    assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+
+    table_latch_.RUnlock();
+    return false;
+  }
+  // the key-value pair was removed.
+
+  // check if this removal makes the bucket page empty.
+  reinterpret_cast<Page *>(bucket_page)->RLatch();
+  const bool empty = bucket_page->IsEmpty();
+  reinterpret_cast<Page *>(bucket_page)->RUnlatch();
+
+  if (!empty) {
+    // not empty. No need to merge buckets.
+
+    // unpin pages.
+    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
+    assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+
+    table_latch_.RUnlock();
+    return true;
+  }
+
+  // has to do bucket merging.
+  table_latch_.RUnlock();
+  table_latch_.WLock();
+  Merge(transaction, key, value);
+
+  // unpin pages.
+  buffer_pool_manager_->UnpinPage(bucket_page_id, true);  // this page may be removed due to directory shrinking.
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
+
+  table_latch_.WUnlock();
+
+  return true;
 }
 
 /*****************************************************************************
