@@ -125,12 +125,12 @@ void HashTableDirectoryPage::VerifyIntegrity() {
 }
 
 void HashTableDirectoryPage::PrintDirectory() {
-  LOG_DEBUG("======== DIRECTORY (global_depth_: %u) ========", global_depth_);
-  LOG_DEBUG("| dir_idx | page_id | local_depth |");
+  printf("======== DIRECTORY (global_depth_: %u) ========\n", global_depth_);
+  printf("| dir_idx | page_id | local_depth |\n");
   for (uint32_t idx = 0; idx < static_cast<uint32_t>(0x1 << global_depth_); idx++) {
-    LOG_DEBUG("|      %u     |     %u     |     %u     |", idx, bucket_page_ids_[idx], local_depths_[idx]);
+    printf("|      %u     |     %u     |     %u     |\n", idx, bucket_page_ids_[idx], local_depths_[idx]);
   }
-  LOG_DEBUG("================ END DIRECTORY ================");
+  printf("================ END DIRECTORY ================\n");
 }
 
 }  // namespace bustub

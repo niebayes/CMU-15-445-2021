@@ -64,6 +64,8 @@ class HashTableBucketPage {
    */
   bool Remove(KeyType key, ValueType value, KeyComparator cmp);
 
+  bool HasDuplicate(KeyType key, ValueType value, KeyComparator cmp);
+
   /**
    * Gets the key at an index in the bucket.
    *

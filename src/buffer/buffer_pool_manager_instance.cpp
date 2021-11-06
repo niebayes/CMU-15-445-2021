@@ -277,6 +277,8 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
 
   // remove the page from page table.
   page_table_.erase(page_id);
+  //! ensure the page is also removed from the LRU list.
+  replacer_->Unpin(frame_id);
 
   // reset the frame's data and metadata.
   page->ResetMemory();

@@ -18,8 +18,8 @@
 #include "storage/table/tmp_tuple.h"
 
 //! debug.
-// #define MAX_SIZE (BUCKET_ARRAY_SIZE)
-#define MAX_SIZE (3)
+#define MAX_SIZE (BUCKET_ARRAY_SIZE)
+// #define MAX_SIZE (3)
 
 // helper macros to locate which bit in which byte the bucket index refers to.
 #define BYTE_SIZE (8U)
@@ -101,6 +101,20 @@ bool HASH_TABLE_BUCKET_TYPE::Remove(KeyType key, ValueType value, KeyComparator 
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
+bool HASH_TABLE_BUCKET_TYPE::HasDuplicate(KeyType key, ValueType value, KeyComparator cmp) {
+  for (uint32_t i = 0; i < MAX_SIZE; ++i) {
+    if (!IsOccupied(i)) {
+      break;
+    }
+    if (IsReadable(i) && (cmp(key, KeyAt(i)) == 0) && value == ValueAt(i)) {
+      // found the target. Remove it.
+      return true;
+    }
+  }
+  return false;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
 KeyType HASH_TABLE_BUCKET_TYPE::KeyAt(uint32_t bucket_idx) const {
   return array_[bucket_idx].first;
 }
@@ -177,7 +191,7 @@ void HASH_TABLE_BUCKET_TYPE::PrintBucket() {
     }
   }
 
-  LOG_INFO("Bucket Capacity: %lu, Size: %u, Taken: %u, Free: %u", BUCKET_ARRAY_SIZE, size, taken, free);
+  printf("Bucket Capacity: %lu, Size: %u, Taken: %u, Free: %u\n", BUCKET_ARRAY_SIZE, size, taken, free);
 }
 
 // DO NOT REMOVE ANYTHING BELOW THIS LINE
