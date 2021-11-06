@@ -59,16 +59,10 @@ bool HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator 
     return false;
   }
 
-  for (uint32_t i = 0; i < MAX_SIZE; ++i) {
-    if (!IsOccupied(i)) {
-      break;
-    }
-    if (IsReadable(i) && (cmp(key, KeyAt(i)) == 0) && value == ValueAt(i)) {
-      // found a duplicate key-value pair. Reject the insertion.
-      return false;
-    }
+  // check duplicates.
+  if (HasDuplicate(key, value, cmp)) {
+    return false;
   }
-  // no duplicate key-value pair found.
 
   for (uint32_t i = 0; i < MAX_SIZE; ++i) {
     if (!IsReadable(i)) {
@@ -116,12 +110,14 @@ bool HASH_TABLE_BUCKET_TYPE::HasDuplicate(KeyType key, ValueType value, KeyCompa
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 KeyType HASH_TABLE_BUCKET_TYPE::KeyAt(uint32_t bucket_idx) const {
-  return array_[bucket_idx].first;
+  // return array_[bucket_idx].first;
+  return std::get<0>(array_[bucket_idx]);
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 ValueType HASH_TABLE_BUCKET_TYPE::ValueAt(uint32_t bucket_idx) const {
-  return array_[bucket_idx].second;
+  // return array_[bucket_idx].second;
+  return std::get<1>(array_[bucket_idx]);
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>

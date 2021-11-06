@@ -143,16 +143,19 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   // set the frame's metadata to make it track the new physical page.
   page->ResetMemory();
   page->page_id_ = new_page_id;
+  // inform the replacer.
+  replacer_->Pin(frame_id);
   // pin the page on this frame.
   ++page->pin_count_;
   assert(page->GetPinCount() == 1);
-  // inform the replacer.
-  replacer_->Pin(frame_id);
 
   // erase the old mapping and insert the new mapping in the page table.
   /// @bayes: erase is no-op if the key does not exist.
   page_table_.erase(old_page_id);
   page_table_.insert({new_page_id, frame_id});
+
+  // flush the new page immediately to make it persistent.
+  disk_manager_->WritePage(new_page_id, page->GetData());
 
   // set the output param.
   *page_id = new_page_id;
@@ -184,10 +187,10 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     page = &pages_[frame_id];
     assert(page);
 
-    // pin this page.
-    ++page->pin_count_;
     // inform the replacer.
     replacer_->Pin(frame_id);
+    // pin this page.
+    ++page->pin_count_;
 
     return page;
   }
@@ -214,14 +217,18 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   assert(page);
   assert(page->GetPinCount() == 0);
 
-  // if it's dirty, flush it to disk.
-  page_id_t old_page_id;
-  old_page_id = page->GetPageId();
-  if (page->IsDirty()) {
-    disk_manager_->WritePage(old_page_id, page->GetData());
-    // and the page is definitely not dirty after flushing.
-    page->is_dirty_ = false;
-  }
+  // // if it's dirty, flush it to disk.
+  // const page_id_t old_page_id = page->GetPageId();
+  // if (page->IsDirty()) {
+  //   disk_manager_->WritePage(old_page_id, page->GetData());
+  //   // and the page is definitely not dirty after flushing.
+  //   page->is_dirty_ = false;
+  // }
+
+  // flush the page whatsoever!
+  const page_id_t old_page_id = page->GetPageId();
+  disk_manager_->WritePage(old_page_id, page->GetData());
+  page->is_dirty_ = false;
 
   // delete the page's corresponding entry from page table.
   page_table_.erase(old_page_id);
@@ -231,8 +238,8 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   // update the frame's metadata and read data in from disk.
   page->page_id_ = page_id;
   // pin the page on this frame.
-  page->pin_count_ = 1;
   replacer_->Pin(frame_id);
+  page->pin_count_ = 1;
   page->ResetMemory();
   /// FIXME(bayes): Does the caller assure that the page exists on disk?
   disk_manager_->ReadPage(page_id, page->GetData());
@@ -278,7 +285,7 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   // remove the page from page table.
   page_table_.erase(page_id);
   //! ensure the page is also removed from the LRU list.
-  replacer_->Unpin(frame_id);
+  replacer_->Pin(frame_id);
 
   // reset the frame's data and metadata.
   page->ResetMemory();
