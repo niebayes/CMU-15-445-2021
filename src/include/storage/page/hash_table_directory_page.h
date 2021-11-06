@@ -60,26 +60,26 @@ class HashTableDirectoryPage {
   /**
    * Lookup a bucket page using a directory index
    *
-   * @param bucket_idx the index in the directory to lookup
-   * @return bucket page_id corresponding to bucket_idx
+   * @param dir_idx the index in the directory to lookup
+   * @return bucket page_id corresponding to dir_idx
    */
-  page_id_t GetBucketPageId(uint32_t bucket_idx);
+  page_id_t GetBucketPageId(uint32_t dir_idx);
 
   /**
    * Updates the directory index using a bucket index and page_id
    *
-   * @param bucket_idx directory index at which to insert page_id
+   * @param dir_idx directory index at which to insert page_id
    * @param bucket_page_id page_id to insert
    */
-  void SetBucketPageId(uint32_t bucket_idx, page_id_t bucket_page_id);
+  void SetBucketPageId(uint32_t dir_idx, page_id_t bucket_page_id);
 
   /**
    * Gets the split image of an index
    *
-   * @param bucket_idx the directory index for which to find the split image
+   * @param dir_idx the directory index for which to find the split image
    * @return the directory index of the split image
    **/
-  uint32_t GetSplitImageIndex(uint32_t bucket_idx);
+  uint32_t GetSplitImageIndex(uint32_t dir_idx);
 
   /**
    * GetGlobalDepthMask - returns a mask of global_depth 1's and the rest 0's.
@@ -99,12 +99,12 @@ class HashTableDirectoryPage {
 
   /**
    * GetLocalDepthMask - same as global depth mask, except it
-   * uses the local depth of the bucket located at bucket_idx
+   * uses the local depth of the bucket located at dir_idx
    *
-   * @param bucket_idx the index to use for looking up local depth
+   * @param dir_idx the index to use for looking up local depth
    * @return mask of local 1's and the rest 0's (with 1's from LSB upwards)
    */
-  uint32_t GetLocalDepthMask(uint32_t bucket_idx);
+  uint32_t GetLocalDepthMask(uint32_t dir_idx);
 
   /**
    * Get the global depth of the hash table directory
@@ -134,42 +134,42 @@ class HashTableDirectoryPage {
   uint32_t Size();
 
   /**
-   * Gets the local depth of the bucket at bucket_idx
+   * Gets the local depth of the bucket at dir_idx
    *
-   * @param bucket_idx the bucket index to lookup
-   * @return the local depth of the bucket at bucket_idx
+   * @param dir_idx the bucket index to lookup
+   * @return the local depth of the bucket at dir_idx
    */
-  uint32_t GetLocalDepth(uint32_t bucket_idx);
+  uint32_t GetLocalDepth(uint32_t dir_idx);
 
   /**
-   * Set the local depth of the bucket at bucket_idx to local_depth
+   * Set the local depth of the bucket at dir_idx to local_depth
    *
-   * @param bucket_idx bucket index to update
+   * @param dir_idx bucket index to update
    * @param local_depth new local depth
    */
-  void SetLocalDepth(uint32_t bucket_idx, uint8_t local_depth);
+  void SetLocalDepth(uint32_t dir_idx, uint8_t local_depth);
 
   /**
-   * Increment the local depth of the bucket at bucket_idx
-   * @param bucket_idx bucket index to increment
+   * Increment the local depth of the bucket at dir_idx
+   * @param dir_idx bucket index to increment
    */
-  void IncrLocalDepth(uint32_t bucket_idx);
+  void IncrLocalDepth(uint32_t dir_idx);
 
   /**
-   * Decrement the local depth of the bucket at bucket_idx
-   * @param bucket_idx bucket index to decrement
+   * Decrement the local depth of the bucket at dir_idx
+   * @param dir_idx bucket index to decrement
    */
-  void DecrLocalDepth(uint32_t bucket_idx);
+  void DecrLocalDepth(uint32_t dir_idx);
 
   /**
    * Gets the high bit corresponding to the bucket's local depth.
    * This is not the same as the bucket index itself.  This method
    * is helpful for finding the pair, or "split image", of a bucket.
    *
-   * @param bucket_idx bucket index to lookup
+   * @param dir_idx bucket index to lookup
    * @return the high bit corresponding to the bucket's local depth
    */
-  uint32_t GetLocalHighBit(uint32_t bucket_idx);
+  uint32_t GetLocalHighBit(uint32_t dir_idx);
 
   /**
    * VerifyIntegrity
