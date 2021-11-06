@@ -22,7 +22,8 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-TEST(HashTableTest, MySplitGrowTest) {
+TEST(HashTableTest, DISABLED_MySplitGrowTest) {
+  // TEST(HashTableTest, MySplitGrowTest) {
   auto *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
   ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());

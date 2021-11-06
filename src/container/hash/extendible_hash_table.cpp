@@ -20,6 +20,9 @@
 #include "common/rid.h"
 #include "container/hash/extendible_hash_table.h"
 
+// toggle the kth bit.
+#define BIT_TOGGLE(x, k) ((x) ^= (1U << (k)))
+
 namespace bustub {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
@@ -36,7 +39,9 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
 
   // request a new page to be used as the first bucket page.
   page_id_t bucket_page_id{INVALID_PAGE_ID};
-  assert(buffer_pool_manager_->NewPage(&bucket_page_id) != nullptr);
+  // assert(buffer_pool_manager_->NewPage(&bucket_page_id) != nullptr);
+  auto *bucket_page =
+      reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(buffer_pool_manager_->NewPage(&bucket_page_id)->GetData());
 
   // link the first directory entry with the bucket page.
   dir_page->SetLocalDepth(0, 0);
@@ -48,6 +53,9 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   // unpin pages. Marked as dirty to make them persistent.
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
+
+  assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
 }
 
 /*****************************************************************************
@@ -103,8 +111,11 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   found_key = bucket_page->GetValue(key, comparator_, result);
   reinterpret_cast<Page *>(bucket_page)->RUnlatch();
 
-  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+
+  assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
 
   table_latch_.RUnlock();
 
@@ -168,7 +179,9 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
 
     return false;
   }
+  /// FIXME(bayes): also risky on no spare frames.
   auto *split_img = FetchBucketPage(split_img_id);
+  assert(split_img != nullptr);
 
   // expand directory if necessary.
   const uint32_t dir_idx = KeyToDirectoryIndex(key, dir_page);
@@ -237,6 +250,10 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   assert(buffer_pool_manager_->UnpinPage(split_img_id, true));  // marked as dirty to be persistent.
 
   table_latch_.WUnlock();
+
+  assert(reinterpret_cast<Page *>(split_img)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
 
   // retry insertion.
   return SplitInsert(transaction, key, value);
@@ -313,6 +330,9 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
 
   table_latch_.WUnlock();
 
+  assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
+
   return true;
 }
 
@@ -335,7 +355,7 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
 
   // find buddy directory entries
   const uint32_t dir_idx = KeyToDirectoryIndex(key, dir_page);
-  const uint32_t buddy_idx = (dir_idx ^ (1 << dir_page->GetLocalHighBit(dir_idx)));
+  const uint32_t buddy_idx = (dir_idx ^ dir_page->GetLocalHighBit(dir_idx));
 
   // find buddy bucket pages.
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
@@ -389,6 +409,10 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
   // unpin the directory page and the bucket page.
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
+
+  assert(reinterpret_cast<Page *>(split_img)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
 
   // since the local depth has been decremented, the bucket page's split image is changed.
   // so there might be another merging on this bucket page.
