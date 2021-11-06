@@ -37,14 +37,16 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   page_id_t bucket_page_id{INVALID_PAGE_ID};
   assert(buffer_pool_manager_->NewPage(&bucket_page_id) != nullptr);
 
+	// link the first directory entry with the bucket page.
   dir_page->SetLocalDepth(0, 0);
   dir_page->SetBucketPageId(0, bucket_page_id);
 
+	//! debug.
   dir_page->VerifyIntegrity();
 
-  // unpin pages. Initially marked as true to make be persistent.
-  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
+  // unpin pages. Marked as dirty to make them persistent.
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
 }
 
 /*****************************************************************************
@@ -64,7 +66,7 @@ uint32_t HASH_TABLE_TYPE::Hash(KeyType key) {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 inline uint32_t HASH_TABLE_TYPE::KeyToDirectoryIndex(KeyType key, HashTableDirectoryPage *dir_page) {
-  return Hash(key) & dir_page->GetGlobalDepthMask();
+  return (Hash(key) & dir_page->GetGlobalDepthMask());
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
@@ -92,7 +94,6 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   table_latch_.RLock();
 
   auto *dir_page = FetchDirectoryPage();
-
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
 
@@ -162,6 +163,7 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     // double size.
     dir_page->IncrGlobalDepth();
 
+    //! debug.
     dir_page->VerifyIntegrity();
   }
 
@@ -177,6 +179,9 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   }
   assert(!linked_entries.empty());
 
+  //! debug.
+  dir_page->VerifyIntegrity();
+
   // request a new page to be used as the split image.
   page_id_t split_img_id;
   assert(buffer_pool_manager_->NewPage(&split_img_id) != nullptr);
@@ -191,6 +196,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
       dir_page->SetBucketPageId(i, split_img_id);
     }
   }
+  //! debug.
+  dir_page->VerifyIntegrity();
 
   // reinsert the key-value pairs in the overflowing bucket page. Also by inspecting the high bit.
   // those with high bit 0 stay in the overflowing bucket page.
