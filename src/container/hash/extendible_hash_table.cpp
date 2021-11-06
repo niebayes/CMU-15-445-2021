@@ -28,6 +28,7 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
   assert(buffer_pool_manager_ != nullptr);
 
+  /// FIXME(bayes): also risky on no spare frames.
   // request a new page to be used as the directory page.
   auto *dir_page =
       reinterpret_cast<HashTableDirectoryPage *>(buffer_pool_manager_->NewPage(&directory_page_id_)->GetData());
@@ -93,6 +94,7 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
 
   table_latch_.RLock();
 
+  /// FIXME(bayes): also risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
@@ -121,6 +123,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) {
   table_latch_.RLock();
 
+  /// FIXME(bayes): also risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
@@ -152,6 +155,21 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   table_latch_.RUnlock();
   table_latch_.WLock();
 
+  // request a new page to be used as the split image.
+  page_id_t split_img_id;
+  if (buffer_pool_manager_->NewPage(&split_img_id) == nullptr) {
+    // buffer pool has no spare frames currently.
+
+    // unpin pages.
+    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+    assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+
+    table_latch_.WUnlock();
+
+    return false;
+  }
+  auto *split_img = FetchBucketPage(split_img_id);
+
   // expand directory if necessary.
   const uint32_t dir_idx = KeyToDirectoryIndex(key, dir_page);
   if (dir_page->GetGlobalDepth() == dir_page->GetLocalDepth(dir_idx)) {
@@ -181,11 +199,6 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
 
   // //! debug.
   // dir_page->VerifyIntegrity();
-
-  // request a new page to be used as the split image.
-  page_id_t split_img_id;
-  assert(buffer_pool_manager_->NewPage(&split_img_id) != nullptr);
-  auto *split_img = FetchBucketPage(split_img_id);
 
   // relink according to the mask result between the directory index and the high bit.
   // those with high bit 0 are linked with the overflowing bucket page.
@@ -236,6 +249,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const ValueType &value) {
   table_latch_.RLock();
 
+  /// FIXME(bayes): also risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
@@ -309,6 +323,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const ValueType &value) {
   // no need to hold latch since the caller Remove must hold it.
 
+  /// FIXME(bayes): also risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
 
   // check if there's only one bucket.
