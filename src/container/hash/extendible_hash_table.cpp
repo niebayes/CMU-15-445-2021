@@ -41,8 +41,8 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   dir_page->SetLocalDepth(0, 0);
   dir_page->SetBucketPageId(0, bucket_page_id);
 
-  //! debug.
-  dir_page->VerifyIntegrity();
+  // //! debug.
+  // dir_page->VerifyIntegrity();
 
   // unpin pages. Marked as dirty to make them persistent.
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
@@ -163,8 +163,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     // double size.
     dir_page->IncrGlobalDepth();
 
-    //! debug.
-    dir_page->VerifyIntegrity();
+    // //! debug.
+    // dir_page->VerifyIntegrity();
   }
 
   // collect all linked directory entries with the overflowing bucket page.
@@ -179,8 +179,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   }
   assert(!linked_entries.empty());
 
-  //! debug.
-  dir_page->VerifyIntegrity();
+  // //! debug.
+  // dir_page->VerifyIntegrity();
 
   // request a new page to be used as the split image.
   page_id_t split_img_id;
@@ -196,8 +196,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
       dir_page->SetBucketPageId(i, split_img_id);
     }
   }
-  //! debug.
-  dir_page->VerifyIntegrity();
+  // //! debug.
+  // dir_page->VerifyIntegrity();
 
   // reinsert the key-value pairs in the overflowing bucket page. Also by inspecting the high bit.
   // those with high bit 0 stay in the overflowing bucket page.
@@ -278,8 +278,23 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   table_latch_.WLock();
   Merge(transaction, key, value);
 
-  // unpin pages.
+  // unpin the bucket page.
   buffer_pool_manager_->UnpinPage(bucket_page_id, true);  // this page may be removed due to directory shrinking.
+
+  // mergings may incur directory shrinkings.
+  while (dir_page->CanShrink()) {
+    // shrinking is trivial since the lower half of the directory array can be safely cut out.
+
+    // reset the lower half.
+    for (uint32_t i = dir_page->Size() / 2; i < dir_page->Size(); ++i) {
+      dir_page->SetBucketPageId(i, INVALID_PAGE_ID);
+      dir_page->SetLocalDepth(i, 0);
+    }
+
+    // decrement the global depth.
+    dir_page->DecrGlobalDepth();
+  }
+
   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
 
   table_latch_.WUnlock();
@@ -291,7 +306,79 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
  * MERGE
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
-void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const ValueType &value) {}
+void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const ValueType &value) {
+  // no need to hold latch since the caller Remove must hold it.
+
+  auto *dir_page = FetchDirectoryPage();
+
+  // check if there's only one bucket.
+  if (dir_page->Size() == 1) {
+    // only one bucket. Cannot merge.
+    assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+    return;
+  }
+
+  // find buddy directory entries
+  const uint32_t dir_idx = KeyToDirectoryIndex(key, dir_page);
+  const uint32_t buddy_idx = (dir_idx ^ (1 << dir_page->GetLocalHighBit(dir_idx)));
+
+  // find buddy bucket pages.
+  const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
+  const page_id_t split_img_id = dir_page->GetBucketPageId(buddy_idx);
+  auto *bucket_page = FetchBucketPage(bucket_page_id);
+  auto *split_img = FetchBucketPage(split_img_id);
+  assert(bucket_page_id != split_img_id);
+  assert(bucket_page != nullptr && split_img != nullptr);
+
+  // check merging conditions.
+  reinterpret_cast<Page *>(bucket_page)->RLatch();
+  reinterpret_cast<Page *>(split_img)->RLatch();
+  // (1) both're empty.
+  const bool cond0 = (bucket_page->IsEmpty() && split_img->IsEmpty());
+  reinterpret_cast<Page *>(split_img)->RUnlatch();
+  reinterpret_cast<Page *>(bucket_page)->RUnlatch();
+  // (2) of the same local depth.
+  const bool cond1 = (dir_page->GetLocalDepth(dir_idx) == dir_page->GetLocalDepth(buddy_idx));
+  // (3) and the local depths are not 0.
+  const bool cond2 = (dir_page->GetLocalDepth(dir_idx) > 0);
+
+  if (!(cond0 && cond1 && cond2)) {
+    // some conditions are violated. Cannot merge.
+
+    // unpin pages.
+    assert(buffer_pool_manager_->UnpinPage(split_img_id, false));
+    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+    assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+
+    return;
+  }
+  // all conditions are satisfied, do merging.
+
+  // make all the entries, that pointed to the split image, point to the bucket page.
+  for (uint32_t i = 0; i < dir_page->Size(); ++i) {
+    if (dir_page->GetBucketPageId(i) == split_img_id) {
+      dir_page->SetBucketPageId(i, bucket_page_id);
+      // decrement their local depths BTW.
+      dir_page->DecrLocalDepth(i);
+    }
+  }
+  // decrement the bucket page's own local depth.
+  dir_page->DecrLocalDepth(dir_idx);
+
+  //! no need to move key-value pairs, since the split image is empty.
+
+  // unpin and delete the split image.
+  assert(buffer_pool_manager_->UnpinPage(split_img_id, false));  // the split image is untouch during the merging.
+  assert(buffer_pool_manager_->DeletePage(split_img_id));
+
+  // unpin the directory page and the bucket page.
+  assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
+
+  // since the local depth has been decremented, the bucket page's split image is changed.
+  // so there might be another merging on this bucket page.
+  Merge(transaction, key, value);
+}
 
 /*****************************************************************************
  * GETGLOBALDEPTH - DO NOT TOUCH

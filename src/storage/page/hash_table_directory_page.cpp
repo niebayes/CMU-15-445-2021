@@ -42,7 +42,20 @@ void HashTableDirectoryPage::SetBucketPageId(uint32_t dir_idx, page_id_t bucket_
 
 uint32_t HashTableDirectoryPage::Size() { return static_cast<uint32_t>(std::pow(2, global_depth_)); }
 
-bool HashTableDirectoryPage::CanShrink() { return false; }
+bool HashTableDirectoryPage::CanShrink() {
+  if (global_depth_ == 0) {
+    return false;
+  }
+
+  // shrink if all the bucket pages' local depths are strictly less than the global depth.
+  for (uint32_t i = 0; i < Size(); ++i) {
+    assert(local_depths_[i] <= global_depth_);
+    if (local_depths_[i] == global_depth_) {
+      return false;
+    }
+  }
+  return true;
+}
 
 uint32_t HashTableDirectoryPage::GetLocalDepth(uint32_t dir_idx) { return local_depths_[dir_idx]; }
 
