@@ -70,12 +70,10 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   assert(page);
 
   // flush the data to disk no matter the page is dirty or not.
-  page->WLatch();
   // cannot let others corrupt the page data when writing.
   disk_manager_->WritePage(page_id, page->GetData());
   // and the page is definitely not dirty after flushing.
   page->is_dirty_ = false;
-  page->WUnlatch();
 
   return true;
 }
@@ -90,12 +88,10 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
     assert(page);
 
     // flush the data to disk no matter the page is dirty or not.
-    page->WLatch();
     // cannot let others corrupt the page data when writing.
     disk_manager_->WritePage(page_id, page->GetData());
     // and the page is definitely not dirty after flushing.
     page->is_dirty_ = false;
-    page->WUnlatch();
   }
 }
 
@@ -140,7 +136,6 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
 
   // if the old page is dirty, flush it.
   page_id_t old_page_id;
-  page->WLatch();
   old_page_id = page->GetPageId();
   if (page->IsDirty()) {
     // cannot let others corrupt the page data when writing.
@@ -148,10 +143,8 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
     // and the page is definitely not dirty after flushing.
     page->is_dirty_ = false;
   }
-  page->WUnlatch();
 
   // set the frame's metadata to make it track the new physical page.
-  page->WLatch();
   // data is set by the application, not here.
   page->ResetMemory();
   page->page_id_ = new_page_id;
@@ -159,7 +152,6 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   ++page->pin_count_;
   // inform the replacer.
   replacer_->Pin(frame_id);
-  page->WUnlatch();
 
   // erase the old mapping and insert the new mapping in the page table.
   /// @bayes: erase is no-op if the key does not exist.
@@ -197,11 +189,9 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     assert(page);
 
     // pin this page.
-    page->WLatch();
     ++page->pin_count_;
     // inform the replacer.
     replacer_->Pin(frame_id);
-    page->WUnlatch();
 
     return page;
   }
@@ -230,7 +220,6 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
 
   // if it's dirty, flush it to disk.
   page_id_t old_page_id;
-  page->WLatch();
   old_page_id = page->GetPageId();
   if (page->IsDirty()) {
     // cannot let others corrupt the page data when writing.
@@ -238,7 +227,6 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     // and the page is definitely not dirty after flushing.
     page->is_dirty_ = false;
   }
-  page->WUnlatch();
 
   // delete the page's corresponding entry from page table.
   page_table_.erase(old_page_id);
@@ -246,7 +234,6 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   page_table_.insert({page_id, frame_id});
 
   // update the frame's metadata and read data in from disk.
-  page->WLatch();
   page->page_id_ = page_id;
   // pin the page on this frame.
   page->pin_count_ = 1;
@@ -254,7 +241,6 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   page->ResetMemory();
   /// FIXME(bayes): Does the caller assure that the page exists on disk?
   disk_manager_->ReadPage(page_id, page->GetData());
-  page->WUnlatch();
 
   return page;
 }
@@ -288,9 +274,7 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
 
   // read its pin count.
   int pin_cnt;
-  page->RLatch();
   pin_cnt = page->GetPinCount();
-  page->RUnlatch();
 
   // check if we can thread-safely delete it.
   assert(pin_cnt >= 0);
@@ -303,11 +287,9 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   page_table_.erase(page_id);
 
   // reset the page's data and metadata.
-  page->WLatch();
   page->ResetMemory();
   page->page_id_ = INVALID_PAGE_ID;
   page->is_dirty_ = false;
-  page->WUnlatch();
 
   /// FIXME(bayes): should protect the accessing of free list.
   // return it to free list.
@@ -336,7 +318,6 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
 
   // decrement the pin count if it was pinned already.
   bool was_pinned = false;
-  page->WLatch();
   if (page->GetPinCount() > 0) {
     was_pinned = true;
     // if this unpinning decrements the pin count to zero, no threads are using it.
@@ -350,7 +331,6 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   ///         we can still evict a page even if it's dirty.
   /// @bayes: if it's already dirty, don't reset it!
   page->is_dirty_ |= is_dirty;
-  page->WUnlatch();
 
   return was_pinned;
 }

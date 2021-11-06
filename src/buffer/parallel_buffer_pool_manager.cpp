@@ -61,32 +61,32 @@ BufferPoolManager *ParallelBufferPoolManager::GetBufferPoolManager(page_id_t pag
 
 Page *ParallelBufferPoolManager::FetchPgImp(page_id_t page_id) {
   // Fetch page for page_id from responsible BufferPoolManagerInstance
-  auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(GetBufferPoolManager(page_id));
+  auto *bpm = GetBufferPoolManager(page_id);
   if (bpm == nullptr) {
     return nullptr;
   }
   /// FIXME(bayes): why can't I access base class protected methods using a pointer of type base class?
-  return bpm->FetchPgImp(page_id);
+  return bpm->FetchPage(page_id);
 }
 
 bool ParallelBufferPoolManager::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   // Unpin page_id from responsible BufferPoolManagerInstance
-  auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(GetBufferPoolManager(page_id));
+  auto *bpm = GetBufferPoolManager(page_id);
   if (bpm == nullptr) {
     return false;
   }
 
-  return bpm->UnpinPgImp(page_id, is_dirty);
+  return bpm->UnpinPage(page_id, is_dirty);
 }
 
 bool ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) {
   // Flush page_id from responsible BufferPoolManagerInstance
-  auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(GetBufferPoolManager(page_id));
+  auto *bpm = GetBufferPoolManager(page_id);
   if (bpm == nullptr) {
     return false;
   }
 
-  return bpm->FlushPgImp(page_id);
+  return bpm->FlushPage(page_id);
 }
 
 Page *ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) {
@@ -101,7 +101,7 @@ Page *ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) {
   // each searching only runs a loop, i.e. num_instances_ time.
   // this is critical to ensure the system won't halt here too long.
   for (size_t i = 0; i < num_instances_; ++i) {
-    page = dynamic_cast<BufferPoolManagerInstance *>(bpms_[round_robin_idx_++ % num_instances_])->NewPgImp(page_id);
+    page = bpms_[round_robin_idx_++ % num_instances_]->NewPage(page_id);
     if (page != nullptr) {
       break;
     }
@@ -112,20 +112,20 @@ Page *ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) {
 
 bool ParallelBufferPoolManager::DeletePgImp(page_id_t page_id) {
   // Delete page_id from responsible BufferPoolManagerInstance
-  auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(GetBufferPoolManager(page_id));
+  auto *bpm = GetBufferPoolManager(page_id);
   if (bpm == nullptr) {
     return false;
   }
 
-  return bpm->DeletePgImp(page_id);
+  return bpm->DeletePage(page_id);
 }
 
 void ParallelBufferPoolManager::FlushAllPgsImp() {
   // flush all pages from all BufferPoolManagerInstances
   for (size_t i = 0; i < num_instances_; ++i) {
-    auto *bpm = dynamic_cast<BufferPoolManagerInstance *>(bpms_[i]);
+    auto *bpm = bpms_[i];
     assert(bpm);
-    bpm->FlushAllPgsImp();
+    bpm->FlushAllPages();
   }
 }
 
