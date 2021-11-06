@@ -17,8 +17,24 @@
 #include "storage/index/hash_comparator.h"
 #include "storage/table/tmp_tuple.h"
 
+//! debug.
 #define MAX_SIZE (BUCKET_ARRAY_SIZE)
-#define BYTE_SIZE (8)
+
+// helper macros to locate which bit in which byte the bucket index refers to.
+#define BYTE_SIZE (8U)
+#define WHICH_BYTE(x) ((x) / BYTE_SIZE)
+#define WHICH_BIT(x) ((x) % BYTE_SIZE)
+
+// helper macros to manipulate one bit.
+// check the kth bit.
+//! !! to ensure it returns a boolean value.
+#define BIT_CHECK(x, k) (!!((x) & (1U << (k))))
+// set the kth bit.
+#define BIT_SET(x, k) ((x) |= (1U << (k)))
+// clear the kth bit.
+#define BIT_CLEAR(x, k) ((x) &= ~(1U << (k)))
+// toggle the kth bit.
+#define BIT_TOGGLE(x, k) ((x) ^= (1U << (k)))
 
 namespace bustub {
 
@@ -95,30 +111,27 @@ ValueType HASH_TABLE_BUCKET_TYPE::ValueAt(uint32_t bucket_idx) const {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::RemoveAt(uint32_t bucket_idx) {
-  /// FIXME(bayes): double RemoveAt unexpected set to readable.
-  readable_[bucket_idx / BYTE_SIZE] ^= (1 << (bucket_idx % BYTE_SIZE));
+  BIT_CLEAR(readable_[WHICH_BYTE(bucket_idx)], WHICH_BIT(bucket_idx));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BUCKET_TYPE::IsOccupied(uint32_t bucket_idx) const {
-  return ((occupied_[bucket_idx / BYTE_SIZE] & (1 << (bucket_idx % BYTE_SIZE))) != 0);
+  return BIT_CHECK(occupied_[WHICH_BYTE(bucket_idx)], WHICH_BIT(bucket_idx));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::SetOccupied(uint32_t bucket_idx) {
-  /// FIXME(bayes): double SetOccupied unexpected set to not-occupied.
-  occupied_[bucket_idx / BYTE_SIZE] ^= (1 << (bucket_idx % BYTE_SIZE));
+  BIT_SET(occupied_[WHICH_BYTE(bucket_idx)], WHICH_BIT(bucket_idx));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BUCKET_TYPE::IsReadable(uint32_t bucket_idx) const {
-  return ((readable_[bucket_idx / BYTE_SIZE] & (1 << (bucket_idx % BYTE_SIZE))) != 0);
+  return BIT_CHECK(readable_[WHICH_BYTE(bucket_idx)], WHICH_BIT(bucket_idx));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::SetReadable(uint32_t bucket_idx) {
-  /// FIXME(bayes): double SetReadable unexpected set to not-readable.
-  readable_[bucket_idx / BYTE_SIZE] ^= (1 << (bucket_idx % BYTE_SIZE));
+  BIT_SET(readable_[WHICH_BYTE(bucket_idx)], WHICH_BIT(bucket_idx));
   SetOccupied(bucket_idx);
 }
 

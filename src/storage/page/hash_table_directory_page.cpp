@@ -69,7 +69,7 @@ void HashTableDirectoryPage::DecrLocalDepth(uint32_t dir_idx) { --local_depths_[
 
 uint32_t HashTableDirectoryPage::GetLocalHighBit(uint32_t dir_idx) {
   const uint32_t local_dep = GetLocalDepth(dir_idx);
-  return (1 << local_dep);
+  return (1 << (local_dep - 1));
 }
 
 /**
