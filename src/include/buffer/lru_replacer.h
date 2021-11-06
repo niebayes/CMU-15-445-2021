@@ -52,9 +52,6 @@ class LRUReplacer : public Replacer {
  private:
   // TODO(student): implement me!
 
-  // replacer capacity.
-  const size_t cap_;
-
   // head: most recently used. tail: least recently used.
   std::list<frame_id_t> lst_;
   // hash map for efficiently looking for frames.

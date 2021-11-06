@@ -20,7 +20,7 @@
 namespace bustub {
 
 /// @bayes: the order of init members is critical!
-LRUReplacer::LRUReplacer(size_t num_pages) : cap_{num_pages} { ump_.reserve(cap_); }
+LRUReplacer::LRUReplacer(size_t num_pages) { ump_.reserve(num_pages); }
 
 LRUReplacer::~LRUReplacer() = default;
 

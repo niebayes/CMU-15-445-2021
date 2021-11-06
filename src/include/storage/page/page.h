@@ -83,6 +83,7 @@ class Page {
   char data_[PAGE_SIZE]{};
   /** The ID of this page. */
   page_id_t page_id_ = INVALID_PAGE_ID;
+  /// FIXME(bayes): Is it legal for the pin count to be negative?
   /** The pin count of this page. */
   int pin_count_ = 0;
   /** True if the page is dirty, i.e. it is different from its corresponding page on disk. */

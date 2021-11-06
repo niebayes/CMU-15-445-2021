@@ -70,7 +70,6 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   assert(page);
 
   // flush the data to disk no matter the page is dirty or not.
-  // cannot let others corrupt the page data when writing.
   disk_manager_->WritePage(page_id, page->GetData());
   // and the page is definitely not dirty after flushing.
   page->is_dirty_ = false;
@@ -88,7 +87,6 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
     assert(page);
 
     // flush the data to disk no matter the page is dirty or not.
-    // cannot let others corrupt the page data when writing.
     disk_manager_->WritePage(page_id, page->GetData());
     // and the page is definitely not dirty after flushing.
     page->is_dirty_ = false;
@@ -138,18 +136,16 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   page_id_t old_page_id;
   old_page_id = page->GetPageId();
   if (page->IsDirty()) {
-    // cannot let others corrupt the page data when writing.
     disk_manager_->WritePage(old_page_id, page->GetData());
-    // and the page is definitely not dirty after flushing.
     page->is_dirty_ = false;
   }
 
   // set the frame's metadata to make it track the new physical page.
-  // data is set by the application, not here.
   page->ResetMemory();
   page->page_id_ = new_page_id;
   // pin the page on this frame.
   ++page->pin_count_;
+  assert(page->GetPinCount() == 1);
   // inform the replacer.
   replacer_->Pin(frame_id);
 
@@ -176,13 +172,13 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   std::scoped_lock<std::mutex> lck{latch_};
 
   Page *page{nullptr};
-
   frame_id_t frame_id = -1;
+
   if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
 
-  // if P exisis, fetch the in-memory page directly.
+  // if P exists, fetch the in-memory page directly.
   if (frame_id != -1) {
     assert(frame_id >= 0 && frame_id < static_cast<int>(pool_size_));
     page = &pages_[frame_id];
@@ -222,7 +218,6 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   page_id_t old_page_id;
   old_page_id = page->GetPageId();
   if (page->IsDirty()) {
-    // cannot let others corrupt the page data when writing.
     disk_manager_->WritePage(old_page_id, page->GetData());
     // and the page is definitely not dirty after flushing.
     page->is_dirty_ = false;
@@ -272,26 +267,22 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   Page *page = &pages_[frame_id];
   assert(page);
 
-  // read its pin count.
-  int pin_cnt;
-  pin_cnt = page->GetPinCount();
-
   // check if we can thread-safely delete it.
-  assert(pin_cnt >= 0);
-  if (pin_cnt > 0) {
+  assert(page->GetPinCount() >= 0);
+  if (page->GetPinCount() > 0) {
     // no, someone else is using it.
     return false;
   }
+  assert(page->GetPinCount() == 0);
 
   // remove the page from page table.
   page_table_.erase(page_id);
 
-  // reset the page's data and metadata.
+  // reset the frame's data and metadata.
   page->ResetMemory();
   page->page_id_ = INVALID_PAGE_ID;
   page->is_dirty_ = false;
 
-  /// FIXME(bayes): should protect the accessing of free list.
   // return it to free list.
   free_list_.push_front(frame_id);
 
@@ -317,12 +308,13 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   assert(page);
 
   // decrement the pin count if it was pinned already.
-  bool was_pinned = false;
+  bool was_pinned{false};
   if (page->GetPinCount() > 0) {
     was_pinned = true;
     // if this unpinning decrements the pin count to zero, no threads are using it.
     // so send it to replacer.
-    if (--page->pin_count_ == 0) {
+    --page->pin_count_;
+    if (page->pin_count_ == 0) {
       replacer_->Unpin(frame_id);
     }
   }
