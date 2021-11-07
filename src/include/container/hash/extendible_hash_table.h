@@ -168,6 +168,8 @@ class ExtendibleHashTable {
 
   // Readers includes inserts and removes, writers are splits and merges
   ReaderWriterLatch table_latch_;
+  // hold this latch whenever you want to upgrade the table_latch_ from reader mode to writer mode.
+  std::mutex upgrade_latch_;
   HashFunction<KeyType> hash_fn_;
 };
 
