@@ -22,8 +22,8 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-// TEST(HashTableTest, DISABLED_MySplitGrowTest) {
-TEST(HashTableTest, MySplitGrowTest) {
+TEST(HashTableTest, DISABLED_MySplitGrowTest) {
+  // TEST(HashTableTest, MySplitGrowTest) {
   auto *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
   ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
@@ -48,8 +48,8 @@ TEST(HashTableTest, MySplitGrowTest) {
   }
 
   uint32_t num_keys{0};
-  for (const page_id_t& pid : bucket_pids) {
-    auto* bucket_page = ht.FetchBucketPage(pid);
+  for (const page_id_t &pid : bucket_pids) {
+    auto *bucket_page = ht.FetchBucketPage(pid);
     num_keys += bucket_page->NumReadable();
   }
   ASSERT_EQ(num_keys, max_key);
@@ -134,6 +134,68 @@ TEST(HashTableTest, MySplitGrowTest) {
       EXPECT_TRUE(ht.Remove(nullptr, i, 2 * i));
     }
   }
+
+  disk_manager->ShutDown();
+  remove("test.db");
+  delete disk_manager;
+  delete bpm;
+}
+
+// NOLINTNEXTLINE
+// TEST(HashTableTest, DISABLED_MyGrowShrinkTest) {
+TEST(HashTableTest, MyGrowShrinkTest) {
+  auto *disk_manager = new DiskManager("test.db");
+  auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
+  ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
+
+  auto *dir_page = ht.FetchDirectoryPage();
+  assert(dir_page != nullptr);
+
+  const int max_key = 100;
+
+  // insert a few values
+  for (int i = 0; i < max_key; i++) {
+    ht.Insert(nullptr, i, i);
+    std::vector<int> res;
+    ht.GetValue(nullptr, i, &res);
+    EXPECT_EQ(1, res.size()) << "Failed to insert " << i << std::endl;
+    EXPECT_EQ(i, res[0]);
+  }
+
+  dir_page->PrintDirectory();
+
+  std::set<page_id_t> bucket_pids;
+  for (uint32_t i = 0; i < dir_page->Size(); ++i) {
+    bucket_pids.insert(dir_page->GetBucketPageId(i));
+  }
+
+  uint32_t num_keys{0};
+  for (const page_id_t &pid : bucket_pids) {
+    auto *bucket_page = ht.FetchBucketPage(pid);
+    num_keys += bucket_page->NumReadable();
+  }
+  ASSERT_EQ(num_keys, max_key);
+
+  ht.VerifyIntegrity();
+
+  // check if the inserted values are all there
+  for (int i = 0; i < max_key; i++) {
+    std::vector<int> res;
+    ht.GetValue(nullptr, i, &res);
+    EXPECT_EQ(1, res.size()) << "Failed to keep " << i << std::endl;
+    EXPECT_EQ(i, res[0]);
+  }
+
+  ht.VerifyIntegrity();
+
+  // delete all values
+  for (int i = 0; i < max_key; i++) {
+    ASSERT_TRUE(ht.Remove(nullptr, i, i));
+  }
+
+  ht.VerifyIntegrity();
+
+  dir_page->PrintDirectory();
 
   disk_manager->ShutDown();
   remove("test.db");

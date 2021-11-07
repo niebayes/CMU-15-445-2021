@@ -132,16 +132,15 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   // allocate a new page id for the newly created physical page.
   const page_id_t new_page_id = AllocatePage();
 
-  // if the old page is dirty, flush it.
-  page_id_t old_page_id;
-  old_page_id = page->GetPageId();
-  if (page->IsDirty()) {
+  // flush the old page if the frame is evicted.
+  const page_id_t old_page_id = page->GetPageId();
+  if (old_page_id != INVALID_PAGE_ID) {
     disk_manager_->WritePage(old_page_id, page->GetData());
+    page->ResetMemory();
     page->is_dirty_ = false;
   }
 
   // set the frame's metadata to make it track the new physical page.
-  page->ResetMemory();
   page->page_id_ = new_page_id;
   // inform the replacer.
   replacer_->Pin(frame_id);
@@ -187,7 +186,7 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     page = &pages_[frame_id];
     assert(page);
 
-    // inform the replacer.
+    // ensure the frame won't be evicted.
     replacer_->Pin(frame_id);
     // pin this page.
     ++page->pin_count_;
@@ -217,18 +216,12 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   assert(page);
   assert(page->GetPinCount() == 0);
 
-  // // if it's dirty, flush it to disk.
-  // const page_id_t old_page_id = page->GetPageId();
-  // if (page->IsDirty()) {
-  //   disk_manager_->WritePage(old_page_id, page->GetData());
-  //   // and the page is definitely not dirty after flushing.
-  //   page->is_dirty_ = false;
-  // }
-
-  // flush the page whatsoever!
+  // flush the old page if the frame is evicted.
   const page_id_t old_page_id = page->GetPageId();
-  disk_manager_->WritePage(old_page_id, page->GetData());
-  page->is_dirty_ = false;
+  if (old_page_id != INVALID_PAGE_ID) {
+    disk_manager_->WritePage(old_page_id, page->GetData());
+    page->is_dirty_ = false;
+  }
 
   // delete the page's corresponding entry from page table.
   page_table_.erase(old_page_id);
@@ -237,7 +230,7 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
 
   // update the frame's metadata and read data in from disk.
   page->page_id_ = page_id;
-  // pin the page on this frame.
+  // ensure this frame won't be evicted.
   replacer_->Pin(frame_id);
   page->pin_count_ = 1;
   page->ResetMemory();
@@ -282,15 +275,18 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   }
   assert(page->GetPinCount() == 0);
 
-  // remove the page from page table.
-  page_table_.erase(page_id);
-  //! ensure the page is also removed from the LRU list.
-  replacer_->Pin(frame_id);
+  // flush the page whatsoever.
+  disk_manager_->WritePage(page_id, page->GetData());
+  page->is_dirty_ = false;
 
   // reset the frame's data and metadata.
   page->ResetMemory();
   page->page_id_ = INVALID_PAGE_ID;
-  page->is_dirty_ = false;
+
+  //! ensure the page is removed from the LRU list.
+  replacer_->Pin(frame_id);
+  // remove the page from page table.
+  page_table_.erase(page_id);
 
   // return it to free list.
   free_list_.push_front(frame_id);
@@ -328,8 +324,6 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
     }
   }
   // set the dirty flag.
-  /// @bayes: the dirty flag only controls whether we should flush it to disk before reusing it.
-  ///         we can still evict a page even if it's dirty.
   /// @bayes: if it's already dirty, don't reset it!
   page->is_dirty_ |= is_dirty;
 

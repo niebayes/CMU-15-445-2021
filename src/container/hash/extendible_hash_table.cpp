@@ -258,10 +258,7 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   bool move_occur{false};  // Did data moving happen?
   reinterpret_cast<Page *>(bucket_page)->WLatch();
   reinterpret_cast<Page *>(split_img)->WLatch();
-  assert(bucket_page->IsFull());  // hence NumReadble = BUCKET_ARRAY_SIZE.
-  for (uint32_t i = 0; i < bucket_page->NumReadable(); ++i) {
-    // KeyType key0 = bucket_page->KeyAt(i);
-    // std::cout << "key0: " << key0 << '\n';
+  for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE; ++i) {
     const uint32_t key_hash = Hash(bucket_page->KeyAt(i));
     if ((key_hash & high_bit) != 0) {
       assert(split_img->Insert(bucket_page->KeyAt(i), bucket_page->ValueAt(i), comparator_));

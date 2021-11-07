@@ -18,8 +18,8 @@
 #include "storage/table/tmp_tuple.h"
 
 //! debug.
-#define MAX_SIZE (BUCKET_ARRAY_SIZE)
-// #define MAX_SIZE (3)
+// #define MAX_SIZE (BUCKET_ARRAY_SIZE)
+#define MAX_SIZE (10)
 
 // helper macros to locate which bit in which byte the bucket index refers to.
 #define BYTE_SIZE (8U)
