@@ -25,7 +25,6 @@ ParallelBufferPoolManager::ParallelBufferPoolManager(size_t num_instances, size_
   bpms_ = new BufferPoolManager *[num_instances_];
   assert(bpms_);
   for (size_t i = 0; i < num_instances_; ++i) {
-    /// @bayes: static type: base class type; dynamic type: derived class type.
     bpms_[i] = new BufferPoolManagerInstance(pool_size_, num_instances_, i, disk_manager, log_manager);
     assert(bpms_[i]);
   }
@@ -65,7 +64,6 @@ Page *ParallelBufferPoolManager::FetchPgImp(page_id_t page_id) {
   if (bpm == nullptr) {
     return nullptr;
   }
-  /// FIXME(bayes): why can't I access base class protected methods using a pointer of type base class?
   return bpm->FetchPage(page_id);
 }
 
