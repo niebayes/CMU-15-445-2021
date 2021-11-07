@@ -31,10 +31,14 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
   assert(buffer_pool_manager_ != nullptr);
 
+  /// FIXME(bayes): Is it legal to hold lock in the ctor?
+  table_latch_.WLock();
+
   /// FIXME(bayes): also risky on no spare frames.
   // request a new page to be used as the directory page.
   auto *dir_page =
       reinterpret_cast<HashTableDirectoryPage *>(buffer_pool_manager_->NewPage(&directory_page_id_)->GetData());
+  assert(dir_page != nullptr);
   dir_page->SetPageId(directory_page_id_);  //! not necessary, but some tests check this.
 
   // request a new page to be used as the first bucket page.
@@ -51,7 +55,11 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   // //! debug.
   // dir_page->VerifyIntegrity();
 
-  // unpin pages. Marked as dirty to make them persistent.
+  // flush the pages to make them persistent.
+  assert(buffer_pool_manager_->FlushPage(bucket_page_id));
+  assert(buffer_pool_manager_->FlushPage(directory_page_id_));
+
+  // unpin pages.
   buffer_pool_manager_->UnpinPage(bucket_page_id, true);
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
   // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
@@ -59,6 +67,8 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
 
   // assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
   // assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
+
+  table_latch_.WUnlock();
 }
 
 /*****************************************************************************
@@ -174,6 +184,10 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     const bool dirty_flag = bucket_page->Insert(key, value, comparator_);
     reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
+    // flush the dirty page immediately.
+    if (dirty_flag) {
+      assert(buffer_pool_manager_->FlushPage(bucket_page_id));
+    }
     buffer_pool_manager_->UnpinPage(bucket_page_id, dirty_flag);
     buffer_pool_manager_->UnpinPage(directory_page_id_, false);
     // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, dirty_flag));
@@ -206,6 +220,7 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
 
     return false;
   }
+  assert(buffer_pool_manager_->FlushPage(split_img_id));  // flush the new page immediately.
   assert(buffer_pool_manager_->UnpinPage(split_img_id, true));
 
   /// FIXME(bayes): also risky on no spare frames.
@@ -269,6 +284,13 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   reinterpret_cast<Page *>(split_img)->WUnlatch();
   reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
+  // flush pages.
+  if (move_occur) {
+    assert(buffer_pool_manager_->FlushPage(bucket_page_id));
+  }
+  assert(buffer_pool_manager_->FlushPage(split_img_id));  // flush new page immediately.
+  assert(buffer_pool_manager_->FlushPage(directory_page_id_));
+
   // unpin pages.
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
   buffer_pool_manager_->UnpinPage(bucket_page_id, move_occur);
@@ -329,6 +351,7 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
     // not empty. No need to merge buckets.
 
     // unpin pages.
+    assert(buffer_pool_manager_->FlushPage(bucket_page_id));
     buffer_pool_manager_->UnpinPage(bucket_page_id, true);
     buffer_pool_manager_->UnpinPage(directory_page_id_, false);
     // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
@@ -346,6 +369,7 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   Merge(transaction, key, value);
 
   // unpin the bucket page.
+  assert(buffer_pool_manager_->FlushPage(bucket_page_id));
   buffer_pool_manager_->UnpinPage(bucket_page_id, true);
   // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
 
@@ -364,6 +388,7 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   }
 
   // unpin the directory page.
+  assert(buffer_pool_manager_->FlushPage(directory_page_id_));
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
   // assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
 
@@ -462,6 +487,7 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
 
   // unpin the directory page and the bucket page.
   buffer_pool_manager_->UnpinPage(bucket_page_id, false);
+  assert(buffer_pool_manager_->FlushPage(directory_page_id_));
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
   // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
   // assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
