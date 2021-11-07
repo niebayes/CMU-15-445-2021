@@ -20,9 +20,12 @@
 namespace bustub {
 
 /// @bayes: the order of init members is critical!
-LRUReplacer::LRUReplacer(size_t num_pages) { ump_.reserve(num_pages); }
+LRUReplacer::LRUReplacer(size_t num_pages) {}
 
-LRUReplacer::~LRUReplacer() = default;
+LRUReplacer::~LRUReplacer() {
+  ump_.clear();
+  lst_.clear();
+}
 
 bool LRUReplacer::Victim(frame_id_t *frame_id) {
   std::scoped_lock<std::mutex> lck{latch_};

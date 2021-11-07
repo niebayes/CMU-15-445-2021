@@ -31,15 +31,15 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
   assert(buffer_pool_manager_ != nullptr);
 
-  /// FIXME(bayes): Is it legal to hold lock in the ctor?
+  /// FIXME(bayes): Is it legal/necessary to hold lock in the ctor?
   table_latch_.WLock();
 
   /// FIXME(bayes): also risky on no spare frames.
   // request a new page to be used as the directory page.
   auto *dir_page =
       reinterpret_cast<HashTableDirectoryPage *>(buffer_pool_manager_->NewPage(&directory_page_id_)->GetData());
-  assert(directory_page_id_ != INVALID_PAGE_ID);
   assert(dir_page != nullptr);
+  assert(directory_page_id_ != INVALID_PAGE_ID);
   dir_page->SetPageId(directory_page_id_);  //! not necessary, but some tests check this.
 
   // request a new page to be used as the first bucket page.
@@ -52,9 +52,6 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   // link the first directory entry with the bucket page.
   dir_page->SetLocalDepth(0, 0);
   dir_page->SetBucketPageId(0, bucket_page_id);
-
-  // //! debug.
-  // dir_page->VerifyIntegrity();
 
   // unpin pages.
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
@@ -103,11 +100,9 @@ HASH_TABLE_BUCKET_TYPE *HASH_TABLE_TYPE::FetchBucketPage(page_id_t bucket_page_i
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result) {
-  upgrade_latch_.lock();
   table_latch_.RLock();
-  upgrade_latch_.unlock();
 
-  /// FIXME(bayes): also risky on no spare frames.
+  /// FIXME(bayes): risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
@@ -129,16 +124,10 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  return SplitInsert(transaction, key, value);
-}
+  // table_latch_.RLock();
+  table_latch_.WLock();
 
-template <typename KeyType, typename ValueType, typename KeyComparator>
-bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  upgrade_latch_.lock();
-  table_latch_.RLock();
-  upgrade_latch_.unlock();
-
-  /// FIXME(bayes): also risky on no spare frames.
+  /// FIXME(bayes): risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
@@ -153,7 +142,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-    table_latch_.RUnlock();
+    // table_latch_.RUnlock();
+    table_latch_.WUnlock();
 
     return false;
   }
@@ -167,38 +157,43 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, dirty_flag));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-    table_latch_.RUnlock();
+    // table_latch_.RUnlock();
+    table_latch_.WUnlock();
 
     return dirty_flag;
   }
-
   // otherwise, has to do bucket splitting and potential directory expansion.
 
-  /// FIXME(bayes): potential deadlock!
-  upgrade_latch_.lock();
-  table_latch_.RUnlock();
-  table_latch_.WLock();
-  upgrade_latch_.unlock();
+  assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+
+  // switch lock modes.
+  // table_latch_.RUnlock();
+
+  // table_latch_.WLock();
+  SplitInsert(transaction, key, value);
+  table_latch_.WUnlock();
+
+  // retry insertion.
+  return Insert(transaction, key, value);
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
+void HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) {
+  /// FIXME(bayes): risky on no spare frames.
+  auto *dir_page = FetchDirectoryPage();
+  const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
+  auto *bucket_page = FetchBucketPage(bucket_page_id);
 
   // request a new page to be used as the split image.
   page_id_t split_img_id;
+  /// FIXME(bayes): risky on no spare frames.
   assert(buffer_pool_manager_->NewPage(&split_img_id) != nullptr);
-  {
-    // if (buffer_pool_manager_->NewPage(&split_img_id) == nullptr) {
-    //   // buffer pool has no spare frames currently.
-
-    //   // unpin pages.
-    //   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
-    //   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
-
-    //   table_latch_.WUnlock();
-
-    //   return false;
-    // }
-  }
+  // unpin for now. A subsequent FetchBucketPage will pin soon.
+  // We don't want to explicitly use reinterpret_cast on page fetching.
   assert(buffer_pool_manager_->UnpinPage(split_img_id, false));
 
-  /// FIXME(bayes): also risky on no spare frames.
+  /// FIXME(bayes): risky on no spare frames.
   auto *split_img = FetchBucketPage(split_img_id);
 
   // expand directory if necessary.
@@ -254,14 +249,9 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
   // unpin pages.
-  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
-  assert(buffer_pool_manager_->UnpinPage(bucket_page_id, move_occur));
   assert(buffer_pool_manager_->UnpinPage(split_img_id, move_occur));
-
-  table_latch_.WUnlock();
-
-  // retry insertion.
-  return SplitInsert(transaction, key, value);
+  assert(buffer_pool_manager_->UnpinPage(bucket_page_id, move_occur));
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
 }
 
 /*****************************************************************************
@@ -269,11 +259,9 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  upgrade_latch_.lock();
   table_latch_.RLock();
-  upgrade_latch_.unlock();
 
-  /// FIXME(bayes): also risky on no spare frames.
+  /// FIXME(bayes): risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
@@ -314,15 +302,14 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   }
   // has to do bucket merging.
 
-  upgrade_latch_.lock();
-  table_latch_.RUnlock();
-  table_latch_.WLock();
-  upgrade_latch_.unlock();
-
-  Merge(transaction, key, value);
-
   // unpin the bucket page.
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
+
+  // switch lock modes.
+  table_latch_.RUnlock();
+  table_latch_.WLock();
+
+  Merge(transaction, key, value);
 
   // mergings may incur directory shrinkings.
   while (dir_page->CanShrink()) {
@@ -351,9 +338,7 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  // no need to hold latch since the caller Remove must hold it.
-
-  /// FIXME(bayes): also risky on no spare frames.
+  /// FIXME(bayes): risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
 
   // check if there's only one bucket.

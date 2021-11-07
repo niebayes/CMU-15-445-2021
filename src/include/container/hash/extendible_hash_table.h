@@ -144,7 +144,7 @@ class ExtendibleHashTable {
    * @param value the value to insert
    * @return whether or not the insertion was successful
    */
-  bool SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value);
+  void SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value);
 
   /**
    * Optionally merges an empty bucket into it's pair.  This is called by Remove,
@@ -168,8 +168,6 @@ class ExtendibleHashTable {
 
   // Readers includes inserts and removes, writers are splits and merges
   ReaderWriterLatch table_latch_;
-  // hold this latch whenever you want to upgrade the table_latch_ from reader mode to writer mode.
-  std::mutex upgrade_latch_;
   HashFunction<KeyType> hash_fn_;
 };
 

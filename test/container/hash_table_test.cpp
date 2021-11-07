@@ -151,7 +151,7 @@ TEST(HashTableTest, MyGrowShrinkTest) {
   auto *dir_page = ht.FetchDirectoryPage();
   assert(dir_page != nullptr);
 
-  const int max_key = 100;
+  const int max_key = 10000;
 
   // insert a few values
   for (int i = 0; i < max_key; i++) {
