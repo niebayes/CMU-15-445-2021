@@ -18,8 +18,8 @@
 #include "storage/table/tmp_tuple.h"
 
 //! debug.
-// #define MAX_SIZE (BUCKET_ARRAY_SIZE)
-#define MAX_SIZE (10)
+#define MAX_SIZE (BUCKET_ARRAY_SIZE)
+// #define MAX_SIZE (10)
 
 // helper macros to locate which bit in which byte the bucket index refers to.
 #define BYTE_SIZE (8U)
@@ -110,14 +110,14 @@ bool HASH_TABLE_BUCKET_TYPE::HasDuplicate(KeyType key, ValueType value, KeyCompa
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 KeyType HASH_TABLE_BUCKET_TYPE::KeyAt(uint32_t bucket_idx) const {
-  // return array_[bucket_idx].first;
-  return std::get<0>(array_[bucket_idx]);
+  return array_[bucket_idx].first;
+  // return std::get<0>(array_[bucket_idx]);
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 ValueType HASH_TABLE_BUCKET_TYPE::ValueAt(uint32_t bucket_idx) const {
-  // return array_[bucket_idx].second;
-  return std::get<1>(array_[bucket_idx]);
+  return array_[bucket_idx].second;
+  // return std::get<1>(array_[bucket_idx]);
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>

@@ -38,6 +38,7 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   // request a new page to be used as the directory page.
   auto *dir_page =
       reinterpret_cast<HashTableDirectoryPage *>(buffer_pool_manager_->NewPage(&directory_page_id_)->GetData());
+  assert(directory_page_id_ != INVALID_PAGE_ID);
   assert(dir_page != nullptr);
   dir_page->SetPageId(directory_page_id_);  //! not necessary, but some tests check this.
 
@@ -55,18 +56,12 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   // //! debug.
   // dir_page->VerifyIntegrity();
 
-  // flush the pages to make them persistent.
-  assert(buffer_pool_manager_->FlushPage(bucket_page_id));
-  assert(buffer_pool_manager_->FlushPage(directory_page_id_));
-
   // unpin pages.
-  buffer_pool_manager_->UnpinPage(bucket_page_id, true);
-  buffer_pool_manager_->UnpinPage(directory_page_id_, true);
-  // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
-  // assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
+  assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
 
-  // assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
-  // assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
 
   table_latch_.WUnlock();
 }
@@ -111,8 +106,6 @@ HASH_TABLE_BUCKET_TYPE *HASH_TABLE_TYPE::FetchBucketPage(page_id_t bucket_page_i
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result) {
-  bool found_key{false};
-
   // table_latch_.RLock();
   table_latch_.WLock();
 
@@ -122,16 +115,14 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   auto *bucket_page = FetchBucketPage(bucket_page_id);
 
   reinterpret_cast<Page *>(bucket_page)->RLatch();
-  found_key = bucket_page->GetValue(key, comparator_, result);
+  const bool found_key = bucket_page->GetValue(key, comparator_, result);
   reinterpret_cast<Page *>(bucket_page)->RUnlatch();
 
-  buffer_pool_manager_->UnpinPage(bucket_page_id, false);
-  buffer_pool_manager_->UnpinPage(directory_page_id_, false);
-  // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
-  // assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+  assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-  // assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
-  // assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(bucket_page)->GetPinCount() == 0);
+  assert(reinterpret_cast<Page *>(dir_page)->GetPinCount() == 0);
 
   // table_latch_.RUnlock();
   table_latch_.WUnlock();
@@ -156,7 +147,6 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
-  assert(bucket_page != nullptr);
 
   reinterpret_cast<Page *>(bucket_page)->RLatch();
   const bool is_full = bucket_page->IsFull();
@@ -165,10 +155,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
 
   // if a duplicate has been found, reject this insertion.
   if (has_duplicate) {
-    buffer_pool_manager_->UnpinPage(bucket_page_id, false);
-    buffer_pool_manager_->UnpinPage(directory_page_id_, false);
-    // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
-    // assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+    assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
     // table_latch_.RUnlock();
     table_latch_.WUnlock();
@@ -176,22 +164,14 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     return false;
   }
 
-  /// FIXME(bayes): what if another thread inserts a key into the bucket at this time and makes it full?
-
   // if not full, a trivial insertion.
   if (!is_full) {
     reinterpret_cast<Page *>(bucket_page)->WLatch();
     const bool dirty_flag = bucket_page->Insert(key, value, comparator_);
     reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
-    // flush the dirty page immediately.
-    if (dirty_flag) {
-      assert(buffer_pool_manager_->FlushPage(bucket_page_id));
-    }
-    buffer_pool_manager_->UnpinPage(bucket_page_id, dirty_flag);
-    buffer_pool_manager_->UnpinPage(directory_page_id_, false);
-    // assert(buffer_pool_manager_->UnpinPage(bucket_page_id, dirty_flag));
-    // assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, dirty_flag));
+    assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
     // table_latch_.RUnlock();
     table_latch_.WUnlock();

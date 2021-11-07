@@ -22,8 +22,8 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-TEST(HashTableTest, DISABLED_MySplitGrowTest) {
-  // TEST(HashTableTest, MySplitGrowTest) {
+// TEST(HashTableTest, DISABLED_MySplitGrowTest) {
+TEST(HashTableTest, MySplitGrowTest) {
   auto *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
   ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
@@ -142,8 +142,8 @@ TEST(HashTableTest, DISABLED_MySplitGrowTest) {
 }
 
 // NOLINTNEXTLINE
-// TEST(HashTableTest, DISABLED_MyGrowShrinkTest) {
-TEST(HashTableTest, MyGrowShrinkTest) {
+TEST(HashTableTest, DISABLED_MyGrowShrinkTest) {
+  // TEST(HashTableTest, MyGrowShrinkTest) {
   auto *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
   ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
@@ -204,8 +204,8 @@ TEST(HashTableTest, MyGrowShrinkTest) {
 }
 
 // NOLINTNEXTLINE
-TEST(HashTableTest, DISABLED_SampleTest) {
-  // TEST(HashTableTest, SampleTest) {
+// TEST(HashTableTest, DISABLED_SampleTest) {
+TEST(HashTableTest, SampleTest) {
   auto *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
   ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
