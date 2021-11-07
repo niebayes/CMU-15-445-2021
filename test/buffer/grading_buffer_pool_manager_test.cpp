@@ -2,26 +2,32 @@
 //
 //                         BusTub
 //
-// buffer_pool_manager_instance_test.cpp
+// buffer_pool_manager_test.cpp
 //
 // Identification: test/buffer/buffer_pool_manager_test.cpp
 //
-// Copyright (c) 2015-2021, Carnegie Mellon University Database Group
+// Copyright (c) 2015-2019, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
-#include "buffer/buffer_pool_manager_instance.h"
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
 #include <random>
 #include <string>
+#include <thread>  // NOLINT
+#include <vector>
+
 #include "buffer/buffer_pool_manager.h"
-#include "gtest/gtest.h"
+#include "mock_buffer_pool_manager.h"  // NOLINT
 
 namespace bustub {
 
+#define BufferPoolManagerInstance MockBufferPoolManageInstancer
+
 // NOLINTNEXTLINE
-TEST(BufferPoolManagerInstanceTest, DISABLED_SampleTest) {
-// TEST(BufferPoolManagerInstanceTest, SampleTest) {
+TEST(BufferPoolManagerInstanceTest, SampleTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
 
@@ -74,8 +80,7 @@ TEST(BufferPoolManagerInstanceTest, DISABLED_SampleTest) {
   delete disk_manager;
 }
 
-TEST(BufferPoolManagerInstanceTest, DISABLED_BinaryDataTest) {
-// TEST(BufferPoolManagerInstanceTest, BinaryDataTest) {
+TEST(BufferPoolManagerInstanceTest, BinaryDataTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
 
@@ -135,8 +140,7 @@ TEST(BufferPoolManagerInstanceTest, DISABLED_BinaryDataTest) {
   delete disk_manager;
 }
 
-TEST(BufferPoolManagerInstanceTest, DISABLED_NewPage) {
-// TEST(BufferPoolManagerInstanceTest, NewPage) {
+TEST(BufferPoolManagerInstanceTest, NewPage) {
   page_id_t temp_page_id;
   DiskManager *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(10, disk_manager);
