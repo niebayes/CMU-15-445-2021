@@ -142,8 +142,8 @@ TEST(HashTableTest, MySplitGrowTest) {
 }
 
 // NOLINTNEXTLINE
-TEST(HashTableTest, DISABLED_MyGrowShrinkTest) {
-  // TEST(HashTableTest, MyGrowShrinkTest) {
+// TEST(HashTableTest, DISABLED_MyGrowShrinkTest) {
+  TEST(HashTableTest, MyGrowShrinkTest) {
   auto *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
   ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
@@ -284,7 +284,6 @@ TEST(HashTableTest, SampleTest) {
 
   // delete all values
   for (int i = 0; i < 5; i++) {
-    dir_page->PrintDirectory();
 
     std::set<page_id_t> page_ids;
     for (uint32_t i = 0; i < dir_page->Size(); ++i) {
@@ -304,6 +303,8 @@ TEST(HashTableTest, SampleTest) {
     } else {
       EXPECT_TRUE(ht.Remove(nullptr, i, 2 * i));
     }
+
+    dir_page->PrintDirectory();
   }
 
   ht.VerifyIntegrity();

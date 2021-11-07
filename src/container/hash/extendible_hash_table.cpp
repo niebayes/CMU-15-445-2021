@@ -103,8 +103,8 @@ HASH_TABLE_BUCKET_TYPE *HASH_TABLE_TYPE::FetchBucketPage(page_id_t bucket_page_i
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result) {
-  // table_latch_.RLock();
-  table_latch_.WLock();
+  table_latch_.RLock();
+  // table_latch_.WLock();
 
   /// FIXME(bayes): also risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
@@ -118,8 +118,8 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-  // table_latch_.RUnlock();
-  table_latch_.WUnlock();
+  table_latch_.RUnlock();
+  // table_latch_.WUnlock();
 
   return found_key;
 }
@@ -134,8 +134,8 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  // table_latch_.RLock();
-  table_latch_.WLock();
+  table_latch_.RLock();
+  // table_latch_.WLock();
 
   /// FIXME(bayes): also risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
@@ -152,8 +152,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-    // table_latch_.RUnlock();
-    table_latch_.WUnlock();
+    table_latch_.RUnlock();
+    // table_latch_.WUnlock();
 
     return false;
   }
@@ -167,8 +167,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, dirty_flag));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-    // table_latch_.RUnlock();
-    table_latch_.WUnlock();
+    table_latch_.RUnlock();
+    // table_latch_.WUnlock();
 
     return dirty_flag;
   }
@@ -176,23 +176,25 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   // otherwise, has to do bucket splitting and potential directory expansion.
 
   /// FIXME(bayes): Is it safe to switch lock modes in this way? We need lock promotion!!!
-  // table_latch_.RUnlock();
-  // table_latch_.WLock();
+  table_latch_.RUnlock();
+  table_latch_.WLock();
 
   // request a new page to be used as the split image.
   page_id_t split_img_id;
   assert(buffer_pool_manager_->NewPage(&split_img_id) != nullptr);
-  // if (buffer_pool_manager_->NewPage(&split_img_id) == nullptr) {
-  //   // buffer pool has no spare frames currently.
+  {
+    // if (buffer_pool_manager_->NewPage(&split_img_id) == nullptr) {
+    //   // buffer pool has no spare frames currently.
 
-  //   // unpin pages.
-  //   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
-  //   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+    //   // unpin pages.
+    //   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+    //   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-  //   table_latch_.WUnlock();
+    //   table_latch_.WUnlock();
 
-  //   return false;
-  // }
+    //   return false;
+    // }
+  }
   assert(buffer_pool_manager_->UnpinPage(split_img_id, false));
 
   /// FIXME(bayes): also risky on no spare frames.
@@ -266,8 +268,8 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  // table_latch_.RLock();
-  table_latch_.WLock();
+  table_latch_.RLock();
+  // table_latch_.WLock();
 
   /// FIXME(bayes): also risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
@@ -286,8 +288,8 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-    // table_latch_.RUnlock();
-    table_latch_.WUnlock();
+    table_latch_.RUnlock();
+    // table_latch_.WUnlock();
     return false;
   }
   // the key-value pair was removed.
@@ -304,14 +306,14 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-    table_latch_.WUnlock();
-    // table_latch_.RUnlock();
+    table_latch_.RUnlock();
+    // table_latch_.WUnlock();
     return true;
   }
   // has to do bucket merging.
 
-  // table_latch_.RUnlock();
-  // table_latch_.WLock();
+  table_latch_.RUnlock();
+  table_latch_.WLock();
 
   Merge(transaction, key, value);
 
@@ -416,7 +418,8 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
 
   // unpin and delete the split image.
   assert(buffer_pool_manager_->UnpinPage(split_img_id, false));  // the split image is untouch during the merging.
-  assert(buffer_pool_manager_->DeletePage(split_img_id));
+  /// FIXME(bayes): why sometimes delete fail?
+  // assert(buffer_pool_manager_->DeletePage(split_img_id));
 
   // unpin the directory page and the bucket page.
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
