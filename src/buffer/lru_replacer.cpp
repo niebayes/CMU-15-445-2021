@@ -20,12 +20,10 @@
 namespace bustub {
 
 /// @bayes: the order of init members is critical!
+/// FIXME(bayes): Valgrind bug. Don't call std::unordered_map::reserve which makes the valgrind timeout.
 LRUReplacer::LRUReplacer(size_t num_pages) {}
 
-LRUReplacer::~LRUReplacer() {
-  ump_.clear();
-  lst_.clear();
-}
+LRUReplacer::~LRUReplacer() = default;
 
 bool LRUReplacer::Victim(frame_id_t *frame_id) {
   std::scoped_lock<std::mutex> lck{latch_};
@@ -36,6 +34,7 @@ bool LRUReplacer::Victim(frame_id_t *frame_id) {
   }
 
   // pop LRU out from list.
+  assert(!lst_.empty());
   const frame_id_t key = lst_.back();
   lst_.pop_back();
   // remove it from hash map.

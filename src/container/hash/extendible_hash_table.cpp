@@ -260,6 +260,7 @@ void HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const ValueType &value) {
   table_latch_.RLock();
+  // table_latch_.WLock();
 
   /// FIXME(bayes): risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
@@ -279,6 +280,7 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
     table_latch_.RUnlock();
+    // table_latch_.WUnlock();
 
     return false;
   }
@@ -297,6 +299,7 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
     table_latch_.RUnlock();
+    // table_latch_.WUnlock();
 
     return true;
   }
