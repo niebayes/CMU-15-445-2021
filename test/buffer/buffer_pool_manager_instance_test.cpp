@@ -20,8 +20,8 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-TEST(BufferPoolManagerInstanceTest, DISABLED_SampleTest) {
-// TEST(BufferPoolManagerInstanceTest, SampleTest) {
+// TEST(BufferPoolManagerInstanceTest, DISABLED_SampleTest) {
+TEST(BufferPoolManagerInstanceTest, SampleTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
 
@@ -74,8 +74,8 @@ TEST(BufferPoolManagerInstanceTest, DISABLED_SampleTest) {
   delete disk_manager;
 }
 
-TEST(BufferPoolManagerInstanceTest, DISABLED_BinaryDataTest) {
-// TEST(BufferPoolManagerInstanceTest, BinaryDataTest) {
+// TEST(BufferPoolManagerInstanceTest, DISABLED_BinaryDataTest) {
+TEST(BufferPoolManagerInstanceTest, BinaryDataTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
 
@@ -135,8 +135,8 @@ TEST(BufferPoolManagerInstanceTest, DISABLED_BinaryDataTest) {
   delete disk_manager;
 }
 
-TEST(BufferPoolManagerInstanceTest, DISABLED_NewPage) {
-// TEST(BufferPoolManagerInstanceTest, NewPage) {
+// TEST(BufferPoolManagerInstanceTest, DISABLED_NewPage) {
+TEST(BufferPoolManagerInstanceTest, NewPage) {
   page_id_t temp_page_id;
   DiskManager *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(10, disk_manager);

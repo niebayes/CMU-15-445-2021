@@ -61,6 +61,7 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   if (page_table_.count(page_id) == 1) {
     frame_id = page_table_.at(page_id);
   }
+  // if the page is not in the buffer pool, no-op.
   if (frame_id == -1) {
     return false;
   }
@@ -131,29 +132,29 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
 
   // allocate a new page id for the newly created physical page.
   const page_id_t new_page_id = AllocatePage();
+  assert(new_page_id != INVALID_PAGE_ID);
 
-  // flush the old page if the frame is evicted.
+  // flush the old page if it's from the replacer and it's dirty.
   const page_id_t old_page_id = page->GetPageId();
-  if (old_page_id != INVALID_PAGE_ID) {
+  if (old_page_id != INVALID_PAGE_ID && page->IsDirty()) {
     disk_manager_->WritePage(old_page_id, page->GetData());
-    page->ResetMemory();
     page->is_dirty_ = false;
   }
 
   // set the frame's metadata to make it track the new physical page.
   page->page_id_ = new_page_id;
-  // inform the replacer.
+  // ensure the frame it's not in the replacer.
   replacer_->Pin(frame_id);
   // pin the page on this frame.
-  ++page->pin_count_;
+  page->pin_count_ = 1;
   assert(page->GetPinCount() == 1);
 
   // erase the old mapping and insert the new mapping in the page table.
-  /// @bayes: erase is no-op if the key does not exist.
-  page_table_.erase(old_page_id);
+  page_table_.erase(old_page_id);  // erase is not if the old_page_id does not exist.
   page_table_.insert({new_page_id, frame_id});
 
-  // flush the new page immediately to make it persistent.
+  // flush the new page immediately to make it persistent. The page id matters, not the data.
+  page->ResetMemory();
   disk_manager_->WritePage(new_page_id, page->GetData());
 
   // set the output param.
@@ -188,8 +189,9 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
 
     // ensure the frame won't be evicted.
     replacer_->Pin(frame_id);
-    // pin this page.
+    // pin the page on this frame.
     ++page->pin_count_;
+    assert(page->GetPinCount() >= 1);
 
     return page;
   }
@@ -197,8 +199,8 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   // otherwise, P does not exist.
   // try to find an unpinned frame in which the fetched on-disk page is stored.
 
-  /// @bayes: search the free list first to minimize disk I/Os and hence better efficiency.
   // request a replacement frame from free list if it's not empty.
+  //! search the free list first to minimize disk I/Os and hence better efficiency.
   if (!free_list_.empty()) {
     frame_id = free_list_.front();
     free_list_.pop_front();
@@ -216,25 +218,28 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   assert(page);
   assert(page->GetPinCount() == 0);
 
-  // flush the old page if the frame is evicted.
+  // flush the old page if it's from the replacer and it's dirty.
   const page_id_t old_page_id = page->GetPageId();
-  if (old_page_id != INVALID_PAGE_ID) {
+  if (old_page_id != INVALID_PAGE_ID && page->IsDirty()) {
     disk_manager_->WritePage(old_page_id, page->GetData());
     page->is_dirty_ = false;
   }
 
-  // delete the page's corresponding entry from page table.
-  page_table_.erase(old_page_id);
-  // and insert the new mapping from the fetched physical page to the replacement frame.
+  // delete the old mapping and insert the new mapping.
+  page_table_.erase(old_page_id);  // erase is no-op if the old_page_id does not exist.
   page_table_.insert({page_id, frame_id});
 
-  // update the frame's metadata and read data in from disk.
+  // zero out old data.
+  page->ResetMemory();
+
+  // update the frame's metadata.
   page->page_id_ = page_id;
-  // ensure this frame won't be evicted.
+  // ensure this frame it's not in the replacer.
   replacer_->Pin(frame_id);
   page->pin_count_ = 1;
-  page->ResetMemory();
-  /// FIXME(bayes): Does the caller assure that the page exists on disk?
+
+  // read data in from disk.
+  //! It's the caller's job to ensure that the page_id is valid, i.e. it corresponds to a physical page.
   disk_manager_->ReadPage(page_id, page->GetData());
 
   return page;
@@ -275,16 +280,22 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   }
   assert(page->GetPinCount() == 0);
 
-  // flush the page whatsoever.
-  disk_manager_->WritePage(page_id, page->GetData());
-  page->is_dirty_ = false;
+  // flush the page if it's dirty.
+  if (page->IsDirty()) {
+    disk_manager_->WritePage(page_id, page->GetData());
+    page->is_dirty_ = false;
+  }
+  assert(!page->IsDirty());
 
-  // reset the frame's data and metadata.
+  // zero out old data.
   page->ResetMemory();
-  page->page_id_ = INVALID_PAGE_ID;
 
-  //! ensure the page is removed from the LRU list.
+  // reset metadata.
+  page->page_id_ = INVALID_PAGE_ID;
+  // ensure that the frame is not in the replacer.
   replacer_->Pin(frame_id);
+  assert(page->GetPinCount() == 0);
+
   // remove the page from page table.
   page_table_.erase(page_id);
 
@@ -305,6 +316,7 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
     frame_id = page_table_.at(page_id);
   }
   if (frame_id == -1) {
+    // does not exist.
     return false;
   }
 
@@ -318,13 +330,13 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
     was_pinned = true;
     // if this unpinning decrements the pin count to zero, no threads are using it.
     // so send it to replacer.
-    --page->pin_count_;
-    if (page->pin_count_ == 0) {
+    if (--page->pin_count_ == 0) {
+      assert(page->GetPinCount() == 0);
       replacer_->Unpin(frame_id);
     }
   }
   // set the dirty flag.
-  /// @bayes: if it's already dirty, don't reset it!
+  //! if it's already dirty, don't reset it!
   page->is_dirty_ |= is_dirty;
 
   return was_pinned;
