@@ -1,0 +1,154 @@
+一、Project 0 C++ Primer
+
+
+简介：实现一个矩阵类，支持矩阵加法、乘法与二者的组合运算。
+
+预计耗时：2 小时。
+
+值得注意的地方：
+
+由于这些类都是 class template，因此在派生类中访问基类的 sub-objects 时，需要使用 this 指针或显式指明基类类型。这是由于编译器在对 non-dependent name 进行 name lookup 时，不会去查找 dependent 基类。
+关于 name lookup 的解释，参考：https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members 
+关于 dependent name 与 non-dependent name，参考：https://eigen.tuxfamily.org/dox/TopicTemplateKeyword.html
+测试代码要求部分函数在应对 invalid 参数时的正确行为是：抛出 OUT_OF_RANGE 异常。这个不是指 C++ 内置的 std::out_of_range，而是 bustub 中自带的 Exception 类。
+部分函数的形参类型为裸指针，然而很多函数的返回类型是 std::unique_ptr。因此需要注意使用 std::unique_ptr::get 方法获得 std::unique_ptr 的裸指针，且注意检查指针非空。
+
+二、Project 1 Buffer Pool Manager 
+
+简介：实现一个 Buffer Pool Manager （以下简称 BPM）类，使用 LRU 置换策略；并在此基础上实现 Parallel BPM，对 BPM 进行并行优化。
+
+预计耗时：10 小时。
+
+值得注意的地方：
+
+将 BPM 中的 latch_ 作为一个大锁使用，即使其保护整个函数域。这是因为 Parallel BPM 内部维护了多个 BPM 实例，其将用户的请求循环式地分派到各个 BPM，因此没有必要在 BPM 内部以小粒度持锁。推荐使用 C++ 17 的 std::scoped_lock 
+FlushPage 需要加锁，因为测试代码会并发式地直接调用该函数。
+避免对 FlushPage 的复用。由于只有一把锁，因此如果在其它函数中调用 FlushPage，会导致 FlushPage 拿不到锁而阻塞。因此，在有刷盘需求时，直接调用 DiskManager 中的 WritePage。特别地，在 FlushAllPage 中，也应该这样做。
+不管是否 dirty，FlushPage 都要刷盘，这由 flush 的语义决定。且刷完之后，必为 非 dirty。
+NewPage 需要先从 free list 请求 frame，这是因为 free list 维护的是内存中当前可用的 frames。相对地，如果首先从 LRUReplacer 中请求 victim，则会导致不必要的 disk I/O，显然提高 overhead。
+New Page 需要将新的 physical page 立即 flush 到磁盘中。这是因为 page id 是全局的（即 memory 与 disk 共用），如果不立即刷盘，可能因为存储该 physical page 的 frame 一直非 dirty，而在 evict 时被直接从内存中抹去，导致后续对该 physical page 的 fetching 由于 page id 在磁盘中不存在而失败。
+一个 frame 中的 physical page 在 evict 时被 flush 的条件为：该 frame 是从 LRUReplacer 中获取，且该 frame 为 dirty。
+在 DeletePage 时，同样注意 flush dirty page。
+对 page_table_ 的使用，有两种方法：
+使其 track 所有非 free 的 frames，即不区分 pinned frames 与 unpinned frames。
+使其仅 track pinned frames，而将 tracking unpinned frames 的工作交给 LRUReplacer。
+两种方法皆可，但第一种更简单，也更符合 BPM 的语义。
+注意区分 dirty bit 的 toggle 与 clear。
+DeallocatePage 不需要实现。
+
+重大坑点：不要使用 std::unordered_map::reserve 方法。目前（2021-11-08），GradeScope 所用的 Valgrind 可能由于版本过旧，导致一些 bug 没有被修复。因此，在运行时可能会抛出 `valgrind: Unrecognised instruction` 错误，详见：https://www.latelee.org/my-study/a-tittle-valgrind-bug.html 及 https://marc.info/?l=kde-bugs-dist&m=142124713819372&w=1 。 Project 1 与 Project 2 都会使用 Valgrind 进行内存安全测试，可能由于 Project 1 的测试不够强劲，导致该问题在 Project 2 中才暴露出来。
+
+我所遇到的错误信息是这样：
+
+
+
+
+Starting memory test: grading_hash_table_verification_test
+b'Running main() from gmock_main.cc\n
+[==========] Running 1 test from 1 test suite.\n
+[----------] Global test environment set-up.\n
+[----------] 1 test from HashTableVerificationTest\n
+[ RUN      ] HashTableVerificationTest.DiskManagerTest\n'
+b"==6441== Memcheck, a memory error detector\n
+==6441== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n
+==6441== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info\n
+==6441== Command: ./grading_hash_table_verification_test\n
+==6441== \n
+vex amd64->IR: unhandled instruction bytes: 0x62 0xF3 0xFD 0x8 0xB 0xC0 0xA 0xC5 0xF9 0x2E\n
+vex amd64->IR:   REX=0 REX.W=0 REX.R=0 REX.X=0 REX.B=0\n
+vex amd64->IR:   VEX=0 VEX.L=0 VEX.nVVVV=0x0 ESC=NONE\n
+vex amd64->IR:   PFX.66=0 PFX.F2=0 PFX.F3=0\n
+==6441== valgrind: Unrecognised instruction at address 0x4f2432c.\n
+==6441==    at 0x4F2432C: std::__detail::_Rehash_base<int, std::pair<int const, std::_List_iterator<int> >, std::allocator<std::pair<int const, std::_List_iterator<int> > >, std::__detail::_Select1st, std::equal_to<int>, std::hash<int>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, false, true>, std::integral_constant<bool, true> >::reserve(unsigned long) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x4F23FDA: std::unordered_map<int, std::_List_iterator<int>, std::hash<int>, std::equal_to<int>, std::allocator<std::pair<int const, std::_List_iterator<int> > > >::reserve(unsigned long) (in /autograder/bustub/build/lib/libbustub_shared.so)\n\
+==6441==    by 0x4F238E1: bustub::LRUReplacer::LRUReplacer(unsigned long) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x4F1F457: bustub::BufferPoolManagerInstance::BufferPoolManagerInstance(unsigned long, unsigned int, unsigned int, bustub::DiskManager*, bustub::LogManager*) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x4F1F297: bustub::BufferPoolManagerInstance::BufferPoolManagerInstance(unsigned long, bustub::DiskManager*, bustub::LogManager*) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x10F284: bustub::HashTableVerificationTest_DiskManagerTest_Test::TestBody() (in /autograder/bustub/build/test/grading_hash_table_verification_test)\n
+==6441==    by 0x56B97E3: void testing::internal::HandleSehExceptionsInMethodIfSupported<testing::Test, void>(testing::Test*, void (testing::Test::*)(), char const*) (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x56B0BD8: void testing::internal::HandleExceptionsInMethodIfSupported<testing::Test, void>(testing::Test*, void (testing::Test::*)(), char const*) (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x5684A4B: testing::Test::Run() (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x568545B: testing::TestInfo::Run() (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x5685D62: testing::TestSuite::Run() (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x569510F: testing::internal::UnitTestImpl::RunAllTests() (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441== Your program just tried to execute an instruction that Valgrind\n
+==6441== did not recognise.  There are two possible reasons for this.\n
+==6441== 1. Your program has a bug and erroneously jumped to a non-code\n
+==6441==    location.  If you are running Memcheck and you just saw a\n
+==6441==    warning about a bad jump, it's probably your program's fault.\n
+==6441== 2. The instruction is legitimate but Valgrind doesn't handle it,\n
+==6441==    i.e. it's Valgrind's fault.  If you think this is the case or\n
+==6441==    you are not sure, please let us know and we'll try to fix it.\n
+==6441== Either way, Valgrind will now raise a SIGILL signal which will\n
+==6441== probably kill your program.\n
+==6441== \n
+==6441== Process terminating with default action of signal 4 (SIGILL)\n
+==6441==  Illegal opcode at address 0x4F2432C\n
+==6441==    at 0x4F2432C: std::__detail::_Rehash_base<int, std::pair<int const, std::_List_iterator<int> >, std::allocator<std::pair<int const, std::_List_iterator<int> > >, std::__detail::_Select1st, std::equal_to<int>, std::hash<int>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, false, true>, std::integral_constant<bool, true> >::reserve(unsigned long) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x4F23FDA: std::unordered_map<int, std::_List_iterator<int>, std::hash<int>, std::equal_to<int>, std::allocator<std::pair<int const, std::_List_iterator<int> > > >::reserve(unsigned long) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x4F238E1: bustub::LRUReplacer::LRUReplacer(unsigned long) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x4F1F457: bustub::BufferPoolManagerInstance::BufferPoolManagerInstance(unsigned long, unsigned int, unsigned int, bustub::DiskManager*, bustub::LogManager*) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x4F1F297: bustub::BufferPoolManagerInstance::BufferPoolManagerInstance(unsigned long, bustub::DiskManager*, bustub::LogManager*) (in /autograder/bustub/build/lib/libbustub_shared.so)\n
+==6441==    by 0x10F284: bustub::HashTableVerificationTest_DiskManagerTest_Test::TestBody() (in /autograder/bustub/build/test/grading_hash_table_verification_test)\n
+==6441==    by 0x56B97E3: void testing::internal::HandleSehExceptionsInMethodIfSupported<testing::Test, void>(testing::Test*, void (testing::Test::*)(), char const*) (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x56B0BD8: void testing::internal::HandleExceptionsInMethodIfSupported<testing::Test, void>(testing::Test*, void (testing::Test::*)(), char const*) (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x5684A4B: testing::Test::Run() (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x568545B: testing::TestInfo::Run() (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x5685D62: testing::TestSuite::Run() (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441==    by 0x569510F: testing::internal::UnitTestImpl::RunAllTests() (in /autograder/bustub/build/lib/libgtest.so.1.11.0)\n
+==6441== \n
+==6441== HEAP SUMMARY:\n
+==6441==     in use at exit: 35,787 bytes in 42 blocks\n
+==6441==   total heap usage: 205 allocs, 163 frees, 157,040 bytes allocated\n
+==6441== \n==6441== LEAK SUMMARY:\n
+==6441==    definitely lost: 0 bytes in 0 blocks\n
+==6441==    indirectly lost: 0 bytes in 0 blocks\n
+==6441==      possibly lost: 0 bytes in 0 blocks\n
+==6441==    still reachable: 35,787 bytes in 42 blocks\n
+==6441==                       of which reachable via heuristic:\n
+==6441==                         newarray           : 12,776 bytes in 1 blocks\n
+==6441==         suppressed: 0 bytes in 0 blocks\n
+==6441== Reachable blocks (those to which a pointer was found) are not shown.\n
+==6441== To see them, rerun with: --leak-check=full --show-leak-kinds=all\n
+==6441== \n
+==6441== For counts of detected and suppressed errors, rerun with: -v\n
+==6441== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n"
+Test Failed: False is not true : Valgrind returned error exitcode.
+
+
+
+
+三、Project 2 Extendible Hash Table
+
+简介：实现 Extendible Hash Table 类，支持 增删查，具备 bucket splitting/merging 与 directory expansion/shrinking 功能。
+
+值得注意的地方：
+
+BucketPage 类相关：
+该类维护了两个 metadata 数组：readable_ 与 occupied_ 。其中后者表示某个位置的 slot 是否存放了 key-value pair 或 tombstone。tombstone 在 probe hashing scheme 中，是为了应对由于删除而导致的 middle hole 使得 lookup 中断。由于 bucket page 采用的是 log-structured 的数据组织方式，因此 tombstone 的作用仅是为了在 scan 时尽早地终止，提高执行效率。
+
+readable_ 与 occupied_ 数组都是 按 bit 访问，而 array_ 数组是按 bucket_idx 访问，注意为 bucket_idx 找到对应的 bit。推荐预定义一些 manipulate bit 的宏或内联函数。
+注意理解 IsEmpty，IsFull，NumReadable 的语义；注意区分 readable 与 occupied。
+DirectoryPage 类相关：
+测试代码只会调用该类中的部分方法，因此某些方法不需要实现。
+注意区分 high bit 与 mask。
+ExtendibleHashTable 类相关：
+从 BPM 中 fetch 的 page 实际为 physical page 的 container，即 frame。因此，在使用时，注意使用 reinterpret_cast，将其显式转换为 Page 类型，即 physical page。推荐实现并使用该类自带的 FetchDirectoryPage 与 FetchBucketPage 方法。
+课程的 lecture 中为使用 MSB （most-significant-bit） 的 extendible hashing scheme，实际上还有一种使用 LSB（least-significant-bit） extendible hashing scheme。后者实现起来更简单，效率也更高。
+前者参考 lecture 与 http://www.mathcs.emory.edu/~cheung/Courses/554/Syllabus/3-index/extensible-hashing-new2.html
+后者参考 https://www.geeksforgeeks.org/extendible-hashing-dynamic-approach-to-dbms/ 
+每次调用 BPM::NewPage 与 BPM::FetchPage 后都要注意在之后某个位置调用 BPM::UnpinPage，否则会使得 frame 的 pin_count 一直不为 0 而不能被 evict，一致占满 buffer pool，直至出现错误。调用 UnpinPage 时，要仔细思考不同类型 page 的 dirty flag。在函数执行中途因为某些原因提前退出时，也要注意调用 UnpinPage。
+
+注意使用 bucket splitting 的 local 性质，分析哪些 bucket pages 会 invovle 到该次 splitting 中。注意更新所有这些 bucket pages 的 metadata（存储在 directory page 中）。
+
+注意 bucket splitting 应实现为递归或循环。同样地，directory expansion 也应如此。
+
+bucket merging 与 directory shrinking 同上。
+建议不使 bucket splitting 与 directory expansion 耦合。
+注意使用 project specification 中给定的 merge 策略。
+
+虽然已经通过 GradeScope 上的测试，但是尚有一个待解决的问题：
+
+ExtendibleHashTable 类中提供了一把读写锁 table_latch_，但没有 lock upgrade/promotion 功能。而根据我的实现，在 Insert 与 Remove 中都需要该功能。之前根据 这个 在 acquire table_latch_ 的读锁时加了一把锁，但果不其然，出现了死锁问题，不能通过测试。目前该问题尚未解决，可能是我的 Insert，Remove 策略有问题。希望有人能提供解决方法。
+
+补充：实际上根据测试结果，Remove （与 Merge）并不需要该功能，但 Insert （与 SplitInsert）需要。如果只是简单地 释放读锁-获取写锁，而不保证原子性，则不能通过某个并发测试。

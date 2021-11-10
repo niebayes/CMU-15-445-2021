@@ -1,0 +1,40 @@
+Starting memory test: grading_hash_table_verification_test
+b'Running main() from gmock_main.cc\n
+[==========] Running 1 test from 1 test suite.\n
+[----------] Global test environment set-up.\n
+[----------] 1 test from HashTableVerificationTest\n
+[ RUN      ] HashTableVerificationTest.DiskManagerTest\n
+[       OK ] HashTableVerificationTest.DiskManagerTest (30919 ms)\n
+[----------] 1 test from HashTableVerificationTest (30925 ms total)\n\n
+[----------] Global test environment tear-down\n
+[==========] 1 test from 1 test suite ran. (30961 ms total)\n
+[  PASSED  ] 1 test.\n'
+b"==6441== Memcheck, a memory error detector\n
+==6441== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n
+==6441== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info\n
+==6441== Command: ./grading_hash_table_verification_test\n
+==6441== \n
+==6441== \n
+==6441== HEAP SUMMARY:\n
+==6441==     in use at exit: 128 bytes in 8 blocks\n
+==6441==   total heap usage: 317,422 allocs, 317,414 frees, 6,691,256 bytes allocated\n
+==6441== \n==6441== LEAK SUMMARY:\n
+==6441==    definitely lost: 0 bytes in 0 blocks\n
+==6441==    indirectly lost: 0 bytes in 0 blocks\n
+==6441==      possibly lost: 0 bytes in 0 blocks\n
+==6441==    still reachable: 128 bytes in 8 blocks\n
+==6441==         suppressed: 0 bytes in 0 blocks\n
+==6441== Reachable blocks (those to which a pointer was found) are not shown.\n
+==6441== To see them, rerun with: --leak-check=full --show-leak-kinds=all\n
+==6441== \n
+==6441== For counts of detected and suppressed errors, rerun with: -v\n
+==6441== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n"
+Starting memory test: grading_hash_table_concurrent_test
+b'Running main() from gmock_main.cc\n[==========] Running 6 tests from 2 test suites.\n[----------] Global test environment set-up.\n[----------] 4 tests from HashTableConcurrentTest\n[ RUN      ] HashTableConcurrentTest.InsertTest1\n[       OK ] HashTableConcurrentTest.InsertTest1 (7858 ms)\n[ RUN      ] HashTableConcurrentTest.InsertTest2\n[       OK ] HashTableConcurrentTest.InsertTest2 (87940 ms)\n[ RUN      ] HashTableConcurrentTest.DeleteTest1\n[       OK ] HashTableConcurrentTest.DeleteTest1 (603 ms)\n[ RUN      ] HashTableConcurrentTest.DeleteTest2\n[       OK ] HashTableConcurrentTest.DeleteTest2 (740 ms)\n[----------] 4 tests from HashTableConcurrentTest (97151 ms total)\n\n[----------] 2 tests from HashTableConcurrentTest2\n[ RUN      ] HashTableConcurrentTest2.MixTest1\n[       OK ] HashTableConcurrentTest2.MixTest1 (219201 ms)\n[ RUN      ] HashTableConcurrentTest2.MixTest2\n[       OK ] HashTableConcurrentTest2.MixTest2 (38223 ms)\n[----------] 2 tests from HashTableConcurrentTest2 (257428 ms total)\n\n[----------] Global test environment tear-down\n[==========] 6 tests from 2 test suites ran. (354615 ms total)\n[  PASSED  ] 6 tests.\n'
+b"==6442== Memcheck, a memory error detector\n==6442== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n==6442== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info\n==6442== Command: ./grading_hash_table_concurrent_test\n==6442== \n==6442== \n==6442== HEAP SUMMARY:\n==6442==     in use at exit: 128 bytes in 8 blocks\n==6442==   total heap usage: 3,251,931 allocs, 3,251,923 frees, 154,807,656 bytes allocated\n==6442== \n==6442== LEAK SUMMARY:\n==6442==    definitely lost: 0 bytes in 0 blocks\n==6442==    indirectly lost: 0 bytes in 0 blocks\n==6442==      possibly lost: 0 bytes in 0 blocks\n==6442==    still reachable: 128 bytes in 8 blocks\n==6442==         suppressed: 0 bytes in 0 blocks\n==6442== Reachable blocks (those to which a pointer was found) are not shown.\n==6442== To see them, rerun with: --leak-check=full --show-leak-kinds=all\n==6442== \n==6442== For counts of detected and suppressed errors, rerun with: -v\n==6442== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n"
+Starting memory test: grading_hash_table_test
+b'Running main() from gmock_main.cc\n[==========] Running 7 tests from 1 test suite.\n[----------] Global test environment set-up.\n[----------] 7 tests from HashTableTest\n[ RUN      ] HashTableTest.SampleTest\n[       OK ] HashTableTest.SampleTest (164 ms)\n[ RUN      ] HashTableTest.InsertTest\n[       OK ] HashTableTest.InsertTest (435 ms)\n[ RUN      ] HashTableTest.RemoveTest\n[       OK ] HashTableTest.RemoveTest (410 ms)\n[ RUN      ] HashTableTest.SplitGrowTest\n[       OK ] HashTableTest.SplitGrowTest (7885 ms)\n[ RUN      ] HashTableTest.GrowShrinkTest\n[       OK ] HashTableTest.GrowShrinkTest (33570 ms)\n[ RUN      ] HashTableTest.IntegratedConcurrencyTest\n[       OK ] HashTableTest.IntegratedConcurrencyTest (4829 ms)\n[ RUN      ] HashTableTest.GrowShrinkConcurrencyTest\n[       OK ] HashTableTest.GrowShrinkConcurrencyTest (6360 ms)\n[----------] 7 tests from HashTableTest (53663 ms total)\n\n[----------] Global test environment tear-down\n[==========] 7 tests from 1 test suite ran. (53699 ms total)\n[  PASSED  ] 7 tests.\n'
+b"==8849== Memcheck, a memory error detector\n==8849== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n==8849== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info\n==8849== Command: ./grading_hash_table_test\n==8849== \n==8849== \n==8849== HEAP SUMMARY:\n==8849==     in use at exit: 128 bytes in 8 blocks\n==8849==   total heap usage: 305,307 allocs, 305,299 frees, 32,602,065 bytes allocated\n==8849== \n==8849== LEAK SUMMARY:\n==8849==    definitely lost: 0 bytes in 0 blocks\n==8849==    indirectly lost: 0 bytes in 0 blocks\n==8849==      possibly lost: 0 bytes in 0 blocks\n==8849==    still reachable: 128 bytes in 8 blocks\n==8849==         suppressed: 0 bytes in 0 blocks\n==8849== Reachable blocks (those to which a pointer was found) are not shown.\n==8849== To see them, rerun with: --leak-check=full --show-leak-kinds=all\n==8849== \n==8849== For counts of detected and suppressed errors, rerun with: -v\n==8849== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n"
+Starting memory test: grading_hash_table_page_test
+b'Running main() from gmock_main.cc\n[==========] Running 3 tests from 1 test suite.\n[----------] Global test environment set-up.\n[----------] 3 tests from HashTablePageTest\n[ RUN      ] HashTablePageTest.DirectoryPageSampleTest\n[       OK ] HashTablePageTest.DirectoryPageSampleTest (94 ms)\n[ RUN      ] HashTablePageTest.BucketPageSampleTest\n[       OK ] HashTablePageTest.BucketPageSampleTest (10 ms)\n[ RUN      ] HashTablePageTest.HashTablePageIntegratedTest\n[       OK ] HashTablePageTest.HashTablePageIntegratedTest (52 ms)\n[----------] 3 tests from HashTablePageTest (163 ms total)\n\n[----------] Global test environment tear-down\n[==========] 3 tests from 1 test suite ran. (199 ms total)\n[  PASSED  ] 3 tests.\n'
+b"==10350== Memcheck, a memory error detector\n==10350== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n==10350== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info\n==10350== Command: ./grading_hash_table_page_test\n==10350== \n==10350== \n==10350== HEAP SUMMARY:\n==10350==     in use at exit: 128 bytes in 8 blocks\n==10350==   total heap usage: 320 allocs, 312 frees, 262,892 bytes allocated\n==10350== \n==10350== LEAK SUMMARY:\n==10350==    definitely lost: 0 bytes in 0 blocks\n==10350==    indirectly lost: 0 bytes in 0 blocks\n==10350==      possibly lost: 0 bytes in 0 blocks\n==10350==    still reachable: 128 bytes in 8 blocks\n==10350==         suppressed: 0 bytes in 0 blocks\n==10350== Reachable blocks (those to which a pointer was found) are not shown.\n==10350== To see them, rerun with: --leak-check=full --show-leak-kinds=all\n==10350== \n==10350== For counts of detected and suppressed errors, rerun with: -v\n==10350== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n"
