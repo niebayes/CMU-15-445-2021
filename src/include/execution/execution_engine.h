@@ -49,7 +49,7 @@ class ExecutionEngine {
    */
   bool Execute(const AbstractPlanNode *plan, std::vector<Tuple> *result_set, Transaction *txn,
                ExecutorContext *exec_ctx) {
-    // Construct and executor for the plan
+    // Construct the executor for the plan
     auto executor = ExecutorFactory::CreateExecutor(exec_ctx, plan);
 
     // Prepare the root executor

@@ -29,7 +29,13 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager *buffer_pool_manager,
                                      const KeyComparator &comparator, HashFunction<KeyType> hash_fn)
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
-  assert(buffer_pool_manager_ != nullptr);
+  // std::ifstream file("/autograder/bustub/test/container/grading_hash_table_scale_test.cpp");
+  // std::string str;
+  // while (file.good()) {
+  //   std::getline(file, str);
+  //   std::cout << str << std::endl;
+  // }
+  // assert(buffer_pool_manager_ != nullptr);
 
   /// FIXME(bayes): Is it legal/necessary to hold lock in the ctor?
   table_latch_.WLock();
@@ -124,77 +130,99 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  // table_latch_.RLock();
-  table_latch_.WLock();
+  table_latch_.RLock();
+  // table_latch_.WLock();
 
   /// FIXME(bayes): risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
 
-  reinterpret_cast<Page *>(bucket_page)->RLatch();
-  const bool is_full = bucket_page->IsFull();
-  const bool has_duplicate = bucket_page->HasDuplicate(key, value, comparator_);
-  reinterpret_cast<Page *>(bucket_page)->RUnlatch();
+  // try to insert the kv pair to this bucket page.
+  reinterpret_cast<Page *>(bucket_page)->WLatch();
 
-  // if a duplicate has been found, reject this insertion.
-  if (has_duplicate) {
+  // if a duplicate kv pair has been found, reject this insertion.
+  if (bucket_page->HasDuplicate(key, value, comparator_)) {
+    reinterpret_cast<Page *>(bucket_page)->WUnlatch();
+
+    // unpin pages.
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-    // table_latch_.RUnlock();
-    table_latch_.WUnlock();
+    table_latch_.RUnlock();
+    // table_latch_.WUnlock();
 
     return false;
   }
+  // no duplicate was found.
 
   // if not full, a trivial insertion.
-  if (!is_full) {
-    reinterpret_cast<Page *>(bucket_page)->WLatch();
+  if (!bucket_page->IsFull()) {
     const bool dirty_flag = bucket_page->Insert(key, value, comparator_);
     reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
+    // unpin pages.
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, dirty_flag));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-    // table_latch_.RUnlock();
-    table_latch_.WUnlock();
+    table_latch_.RUnlock();
+    // table_latch_.WUnlock();
 
     return dirty_flag;
   }
   // otherwise, has to do bucket splitting and potential directory expansion.
 
+  // don't forget to unpin pages!
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
-  // switch lock modes.
-  // table_latch_.RUnlock();
+  // don't forget to release lock/latch!
+  reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
-  // table_latch_.WLock();
+  // switch lock modes.
+  table_latch_.RUnlock();
+  table_latch_.WLock();
+
   SplitInsert(transaction, key, value);
+
   table_latch_.WUnlock();
 
-  // retry insertion.
   return Insert(transaction, key, value);
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) {
+  // table_latch_.WLock();
+
   /// FIXME(bayes): risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
   const page_id_t bucket_page_id = KeyToPageId(key, dir_page);
   auto *bucket_page = FetchBucketPage(bucket_page_id);
 
+  // lock the page to exclude accessing.
+  reinterpret_cast<Page *>(bucket_page)->WLatch();
+  if (!bucket_page->IsFull()) {
+    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+    assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+
+    reinterpret_cast<Page *>(bucket_page)->WUnlatch();
+
+    return;
+  }
+
   // request a new page to be used as the split image.
   page_id_t split_img_id;
   /// FIXME(bayes): risky on no spare frames.
   assert(buffer_pool_manager_->NewPage(&split_img_id) != nullptr);
-  // unpin for now. A subsequent FetchBucketPage will pin soon.
+  // unpin for now. A subsequent FetchBucketPage will pin it soon.
   // We don't want to explicitly use reinterpret_cast on page fetching.
   assert(buffer_pool_manager_->UnpinPage(split_img_id, false));
 
   /// FIXME(bayes): risky on no spare frames.
   auto *split_img = FetchBucketPage(split_img_id);
+  // lock the page to exclude accessing.
+  /// FIXME(bayes): Is it necessary to lock split_img as well?
+  // reinterpret_cast<Page *>(split_img)->WLatch();
 
   // expand directory if necessary.
   const uint32_t dir_idx = KeyToDirectoryIndex(key, dir_page);
@@ -233,10 +261,8 @@ void HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   // reinsert the key-value pairs in the overflowing bucket page. Also by inspecting the high bit.
   // those with high bit 0 stay in the overflowing bucket page.
   // those with high bit 1 are removed from the overflowing bucket page and reinserted to the split image.
-  /// FIXME(bayes): Is it necessary to lock split_img as well?
   bool move_occur{false};  // Did data moving happen?
-  reinterpret_cast<Page *>(bucket_page)->WLatch();
-  reinterpret_cast<Page *>(split_img)->WLatch();
+  assert(split_img->IsEmpty());
   for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE; ++i) {
     const uint32_t key_hash = Hash(bucket_page->KeyAt(i));
     if ((key_hash & high_bit) != 0) {
@@ -245,13 +271,19 @@ void HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
       move_occur |= true;
     }
   }
-  reinterpret_cast<Page *>(split_img)->WUnlatch();
+  // reinterpret_cast<Page *>(split_img)->WUnlatch();
   reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
   // unpin pages.
-  assert(buffer_pool_manager_->UnpinPage(split_img_id, move_occur));
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, move_occur));
+  assert(buffer_pool_manager_->UnpinPage(split_img_id, move_occur));
   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
+
+  // unlock.
+  // table_latch_.WUnlock();
+
+  // // retry insertion given the new configuration of the page table.
+  // return Insert(transaction, key, value);
 }
 
 /*****************************************************************************
@@ -260,7 +292,6 @@ void HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const ValueType &value) {
   table_latch_.RLock();
-  // table_latch_.WLock();
 
   /// FIXME(bayes): risky on no spare frames.
   auto *dir_page = FetchDirectoryPage();
@@ -270,7 +301,6 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   // check if the key-value was found and removed.
   reinterpret_cast<Page *>(bucket_page)->WLatch();
   const bool removed = bucket_page->Remove(key, value, comparator_);
-  reinterpret_cast<Page *>(bucket_page)->WUnlatch();
 
   if (!removed) {
     // the key-value pair was not found.
@@ -279,17 +309,15 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
+    reinterpret_cast<Page *>(bucket_page)->WUnlatch();
     table_latch_.RUnlock();
-    // table_latch_.WUnlock();
 
     return false;
   }
   // the key-value pair was removed.
 
   // check if this removal makes the bucket page empty.
-  reinterpret_cast<Page *>(bucket_page)->RLatch();
   const bool empty = bucket_page->IsEmpty();
-  reinterpret_cast<Page *>(bucket_page)->RUnlatch();
 
   if (!empty) {
     // not empty. No need to merge buckets.
@@ -298,14 +326,15 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
     assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
     assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
 
+    reinterpret_cast<Page *>(bucket_page)->WUnlatch();
     table_latch_.RUnlock();
-    // table_latch_.WUnlock();
 
     return true;
   }
   // has to do bucket merging.
 
-  // unpin the bucket page.
+  // unlatch and unpin the bucket page.
+  reinterpret_cast<Page *>(bucket_page)->WUnlatch();
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
 
   // switch lock modes.

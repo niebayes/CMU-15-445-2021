@@ -18,7 +18,7 @@
 namespace bustub {
 /**
  * The AbstractExecutor implements the Volcano tuple-at-a-time iterator model.
- * This is the base class from which all executors in the BustTub execution
+ * This is the base class from which all executors in the BusTub execution
  * engine inherit, and defines the minimal interface that all executors support.
  */
 class AbstractExecutor {

@@ -66,10 +66,10 @@
  *
  * `test/execution/executor_test_util.h`
  *
- * This text fixture takes care of many of the steps required to set
+ * This test fixture takes care of many of the steps required to set
  * up the system for execution engine tests. For example, it initializes
- * key DBMS components, such as the disk manager, the  buffer pool manager,
- * and the catalog, among others. Furthermore, this text fixture also
+ * key DBMS components, such as the disk manager, the buffer pool manager,
+ * and the catalog, among others. Furthermore, this test fixture also
  * populates the test tables used by all unit tests. This is accomplished
  * with the help of the `TableGenerator` class via a call to `GenerateTestTables()`.
  *

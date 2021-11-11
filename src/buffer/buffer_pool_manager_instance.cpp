@@ -143,7 +143,7 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
 
   // set the frame's metadata to make it track the new physical page.
   page->page_id_ = new_page_id;
-  // ensure the frame it's not in the replacer.
+  // ensure the frame is not in the replacer.
   replacer_->Pin(frame_id);
   // pin the page on this frame.
   page->pin_count_ = 1;
