@@ -62,7 +62,7 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> right_executor_;
   // metadata identifying the outer table.
   const TableInfo *outer_table_info_;
-  // metadata identifying the outer table.
+  // metadata identifying the inner table.
   const TableInfo *inner_table_info_;
   // current outer tuple.
   Tuple outer_tuple_{};

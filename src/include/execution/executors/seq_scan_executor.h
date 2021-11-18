@@ -52,9 +52,7 @@ class SeqScanExecutor : public AbstractExecutor {
   const SeqScanPlanNode *plan_;
   // metadata identifying the table to be scanned.
   const TableInfo *table_info_;
-  // current cursor position. Initialized to the beginning of the table to be scanned in the Init.
+  // current cursor position.
   TableIterator table_it_;
-  // end of the table.
-  TableIterator table_end_;
 };
 }  // namespace bustub
