@@ -13,7 +13,6 @@
 // niebayes, 2021-11-14, niebayes@gmail.com
 
 #include <cassert>
-#include <string_view>
 
 #include "execution/executors/seq_scan_executor.h"
 
@@ -38,11 +37,9 @@ void SeqScanExecutor::Init() {
 bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
   // scan the table tuple by tuple and spit out the next tuple that satisfies the predicate.
   const AbstractExpression *predicate = plan_->GetPredicate();
-  assert(predicate != nullptr);
 
   while (table_it_ != table_info_->table_->End()) {
-    const Value res = predicate->Evaluate(&(*table_it_), &table_info_->schema_);
-    if (res.GetAs<bool>()) {
+    if (predicate == nullptr || predicate->Evaluate(&(*table_it_), &table_info_->schema_).GetAs<bool>()) {
       // found a tuple that satisfies the predicate.
 
       // what columns the output schema has.
@@ -63,13 +60,15 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
 
       // values corresponding to the output schema.
       std::vector<Value> values;
+      /// FIXME(bayes): Get values in this way?
+      // const Value value = output_cols.front().GetExpr()->Evaluate(&(*table_it_), &table_info_->schema_);
 
       // use this to deduplicate columns of the same name.
       std::unordered_set<uint32_t> added_col_indices;
 
       // collect values from the input tuple that the output schema requires.
       for (const Column &col : output_cols) {
-        const std::string_view col_name{col.GetName()};
+        const std::string &col_name{col.GetName()};
         // find the index of the column in the input schema given its name.
         bool found{false};
         for (uint32_t col_idx = 0; col_idx < input_cols.size(); ++col_idx) {

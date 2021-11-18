@@ -60,7 +60,7 @@ class InsertExecutor : public AbstractExecutor {
   /** The insert plan node to be executed*/
   const InsertPlanNode *plan_;
   // the child executor to obtain tuples from. Nullptr if it's the raw insert plan.
-  std::unique_ptr<AbstractExecutor> child_executor_{nullptr};
+  std::unique_ptr<AbstractExecutor> child_executor_;
   // metadata identifying the table to insert into.
   const TableInfo *table_info_;
   // all indices corresponding to this table. Maybe empty if the table has no corresponding indices.

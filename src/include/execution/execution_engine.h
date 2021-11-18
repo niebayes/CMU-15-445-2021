@@ -16,6 +16,7 @@
 
 #include "buffer/buffer_pool_manager.h"
 #include "catalog/catalog.h"
+#include "common/logger.h"
 #include "concurrency/transaction_manager.h"
 #include "execution/executor_context.h"
 #include "execution/executor_factory.h"
@@ -66,6 +67,14 @@ class ExecutionEngine {
       }
     } catch (Exception &e) {
       // TODO(student): handle exceptions
+
+      switch (e.GetType()) {
+        case ExceptionType::INVALID:
+          LOG_DEBUG("Catch INVALID Exception");
+          break;
+        default:
+          assert(false);
+      }
     }
 
     return true;

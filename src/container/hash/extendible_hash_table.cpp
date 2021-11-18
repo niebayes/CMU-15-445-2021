@@ -29,14 +29,6 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager *buffer_pool_manager,
                                      const KeyComparator &comparator, HashFunction<KeyType> hash_fn)
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
-  // std::ifstream file("/autograder/bustub/test/container/grading_hash_table_scale_test.cpp");
-  // std::string str;
-  // while (file.good()) {
-  //   std::getline(file, str);
-  //   std::cout << str << std::endl;
-  // }
-  // assert(buffer_pool_manager_ != nullptr);
-
   /// FIXME(bayes): Is it legal/necessary to hold lock in the ctor?
   table_latch_.WLock();
 

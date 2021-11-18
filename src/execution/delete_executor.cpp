@@ -28,16 +28,23 @@ DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *
 
   // retrieve the table to update.
   table_info_ = catalog->GetTable(plan_->TableOid());
-  /// FIXME(bayes): Is it recommended to throw in ctor?
   if (table_info_ == Catalog::NULL_TABLE_INFO) {
-    throw Exception(ExceptionType::INVALID, "Table not found given the invalid table oid");
+    throw Exception(ExceptionType::INVALID, "Table not found");
+  }
+
+  // get all indices corresponding to this table. Empty if the table has no corresponding indices.
+  table_indices_ = catalog->GetTableIndexes(table_info_->name_);
+  for (const IndexInfo *index_info : table_indices_) {
+    if (index_info == Catalog::NULL_INDEX_INFO) {
+      throw Exception(ExceptionType::INVALID, "Index not found");
+    }
   }
 }
 
 void DeleteExecutor::Init() {
-  // get all indices corresponding to this table. Empty if the table has no corresponding indices.
-  Catalog *catalog = exec_ctx_->GetCatalog();
-  table_indices_ = catalog->GetTableIndexes(table_info_->name_);
+  // init the child executor.
+  assert(child_executor_ != nullptr);
+  child_executor_->Init();
 }
 
 bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
@@ -54,18 +61,19 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   }
 
   // if the delete marking succeeds, i.e. the tuple exists, also delete all corresponding indices.
-  /// FIXME(bayes): Shall I delete the indices right away?
   if (delete_success) {
     for (IndexInfo *index_info : table_indices_) {
+      /// FIXME(bayes): What does the FIXME below mean?
       /// FIXME(bayes): Will the child executor also spit out the tuple?
       assert(tuple != nullptr);
-      Tuple key = tuple->KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
-                                      index_info->index_->GetKeyAttrs());
+      const Tuple key = tuple->KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
+                                            index_info->index_->GetKeyAttrs());
       index_info->index_->DeleteEntry(key, *rid, exec_ctx_->GetTransaction());
     }
   }
 
-  return true;
+  // return false unconditionally. Throw on failures.
+  return false;
 }
 
 }  // namespace bustub

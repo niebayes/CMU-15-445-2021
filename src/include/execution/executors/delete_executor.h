@@ -24,7 +24,7 @@
 namespace bustub {
 
 /**
- * DeletedExecutor executes a delete on a table.
+ * DeleteExecutor executes a delete on a table.
  * Deleted values are always pulled from a child.
  */
 class DeleteExecutor : public AbstractExecutor {
@@ -60,7 +60,7 @@ class DeleteExecutor : public AbstractExecutor {
   const DeletePlanNode *plan_;
   /** The child executor from which RIDs for deleted tuples are pulled */
   std::unique_ptr<AbstractExecutor> child_executor_;
-  // metadata identifying the table that should be deleted
+  // metadata identifying the table of which tuples should be deleted.
   const TableInfo *table_info_;
   // all indices corresponding to this table. Maybe empty if the table has no corresponding indices.
   std::vector<IndexInfo *> table_indices_;
