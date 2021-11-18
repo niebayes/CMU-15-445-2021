@@ -26,7 +26,7 @@ DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *
   Catalog *catalog = exec_ctx_->GetCatalog();
   assert(catalog != nullptr);
 
-  // retrieve the table to update.
+  // retrieve the table from which to delete tuples.
   table_info_ = catalog->GetTable(plan_->TableOid());
   if (table_info_ == Catalog::NULL_TABLE_INFO) {
     throw Exception(ExceptionType::INVALID, "Table not found");
@@ -53,6 +53,9 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   // get the rid of the tuple to be deleted.
   if (child_executor_->Next(tuple, rid)) {
     // mark the tuple as deleted.
+    /// FIXME(bayes): Is this behavior correct?
+    //! TableHeap::MarkDelete return false only when the page fetching fails, i.e. the TablePage::MarkDelete called
+    //! inside it may fail and won't emit any message.
     delete_success = table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction());
 
   } else {

@@ -101,7 +101,10 @@ bool TableHeap::MarkDelete(const RID &rid, Transaction *txn) {
   }
   // Otherwise, mark the tuple as deleted.
   page->WLatch();
-  page->MarkDelete(rid, txn, lock_manager_, log_manager_);
+  // page->MarkDelete(rid, txn, lock_manager_, log_manager_);
+  if (!page->MarkDelete(rid, txn, lock_manager_, log_manager_)) {
+    LOG_DEBUG("MarkDelete failed");
+  }
   page->WUnlatch();
   buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
   // Update the transaction's write set.
