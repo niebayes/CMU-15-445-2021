@@ -29,6 +29,10 @@ AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const Aggreg
 }
 
 void AggregationExecutor::Init() {
+  // init the child executor.
+  assert(child_executor_ != nullptr);
+  child_executor_->Init();
+
   //! since aggregations are pipeline breakers, i.e. operators that produce the first output tuple only after all input
   //! tuples have been produced, we must finish the hash table build phase inside Init.
 
@@ -63,9 +67,10 @@ bool AggregationExecutor::Next(Tuple *tuple, RID *rid) {
     ++aht_iterator_;
 
     // apply the having predicate to filter out tuples.
-    if (plan_->GetHaving()
-            ->EvaluateAggregate(aht_iterator_.Key().group_bys_, aht_iterator_.Val().aggregates_)
-            .GetAs<bool>()) {
+    //! the having clause is not mandatory.
+    auto having_expr = plan_->GetHaving();
+    if (having_expr &&
+        having_expr->EvaluateAggregate(aht_iterator_.Key().group_bys_, aht_iterator_.Val().aggregates_).GetAs<bool>()) {
       return true;
     }
   }

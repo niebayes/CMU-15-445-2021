@@ -21,7 +21,11 @@ DistinctExecutor::DistinctExecutor(ExecutorContext *exec_ctx, const DistinctPlan
   assert(plan_ != nullptr);
 }
 
-void DistinctExecutor::Init() {}
+void DistinctExecutor::Init() {
+  // init the child executor.
+  assert(child_executor_ != nullptr);
+  child_executor_->Init();
+}
 
 bool DistinctExecutor::Next(Tuple *tuple, RID *rid) {
   // build the hash table on the fly.

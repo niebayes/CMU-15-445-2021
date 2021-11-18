@@ -54,6 +54,7 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   if (child_executor_->Next(tuple, rid)) {
     // mark the tuple as deleted.
     /// FIXME(bayes): Is this behavior correct?
+    /// TODO(bayes): commit a PR to bustub.
     //! TableHeap::MarkDelete return false only when the page fetching fails, i.e. the TablePage::MarkDelete called
     //! inside it may fail and won't emit any message.
     delete_success = table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction());
@@ -71,7 +72,8 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
       assert(tuple != nullptr);
       const Tuple key = tuple->KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
                                             index_info->index_->GetKeyAttrs());
-      index_info->index_->DeleteEntry(key, *rid, exec_ctx_->GetTransaction());
+      //! you have to pass in the rid of the key but it's unused however.
+      index_info->index_->DeleteEntry(key, key.GetRid(), exec_ctx_->GetTransaction());
     }
   }
 

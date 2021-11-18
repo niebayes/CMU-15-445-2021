@@ -15,12 +15,12 @@
 namespace bustub {
 
 NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const NestedLoopJoinPlanNode *plan,
-                                               std::unique_ptr<AbstractExecutor> &&left_executor,
-                                               std::unique_ptr<AbstractExecutor> &&right_executor)
+                                               std::unique_ptr<AbstractExecutor> &&left_child_executor,
+                                               std::unique_ptr<AbstractExecutor> &&right_child_executor)
     : AbstractExecutor(exec_ctx),
       plan_{plan},
-      left_executor_{std::move(left_executor)},
-      right_executor_{std::move(right_executor)} {
+      left_child_executor_{std::move(left_child_executor)},
+      right_child_executor_{std::move(right_child_executor)} {
   assert(exec_ctx_ != nullptr);
   assert(plan_ != nullptr);
 
@@ -29,7 +29,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const 
   assert(catalog != nullptr);
 
   // retrieve the outer/inner tables.
-  //! by convention, the outer table is the smaller table. It's the caller's duty to keep this invariant.
+  //! by convention, the outer table is the smaller table. It's the caller's duty to follow this convention.
   outer_table_info_ = catalog->GetTable(dynamic_cast<const SeqScanPlanNode *>(plan_->GetLeftPlan())->GetTableOid());
   if (outer_table_info_ == Catalog::NULL_TABLE_INFO) {
     throw Exception(ExceptionType::INVALID, "Table not found given the invalid table oid");
@@ -41,7 +41,11 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const 
 }
 
 void NestedLoopJoinExecutor::Init() {
-  /// FIXME(bayes): Should I call children's Inits at here?
+  // init child executors.
+  assert(left_child_executor_ != nullptr);
+  assert(right_child_executor_ != nullptr);
+  left_child_executor_->Init();
+  right_child_executor_->Init();
 }
 
 bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
@@ -49,20 +53,20 @@ bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
   RID right_rid;
 
   // fetch the next inner tuple from the inner table, i.e. the right one.
-  if (!right_executor_->Next(&inner_tuple, &right_rid)) {
+  if (!right_child_executor_->Next(&inner_tuple, &right_rid)) {
     // the inner table is exhausted, check if the outer table is exhausted as well.
     RID left_rid;
-    if (!left_executor_->Next(&outer_tuple_, &left_rid)) {
+    if (!left_child_executor_->Next(&outer_tuple_, &left_rid)) {
       // yes, the join is done.
       return false;
     }
     // no, the join proceeds.
 
     // reset the table iterator of the inner table to the beginning.
-    right_executor_->Init();
+    right_child_executor_->Init();
     // and retry the fetching. This assertion fails if the inner table is empty.
     /// FIXME(bayes): Shall I throw instead?
-    assert(right_executor_->Next(&inner_tuple, &right_rid));
+    assert(right_child_executor_->Next(&inner_tuple, &right_rid));
   }
 
   // get the left and right schemae.

@@ -36,8 +36,8 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
    * @param right_executor The child executor that produces tuple for the right side of join
    */
   NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const NestedLoopJoinPlanNode *plan,
-                         std::unique_ptr<AbstractExecutor> &&left_executor,
-                         std::unique_ptr<AbstractExecutor> &&right_executor);
+                         std::unique_ptr<AbstractExecutor> &&left_child_executor,
+                         std::unique_ptr<AbstractExecutor> &&right_child_executor);
 
   /** Initialize the join */
   void Init() override;
@@ -57,9 +57,9 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   /** The NestedLoopJoin plan node to be executed. */
   const NestedLoopJoinPlanNode *plan_;
   // left executor.
-  std::unique_ptr<AbstractExecutor> left_executor_;
+  std::unique_ptr<AbstractExecutor> left_child_executor_;
   // right executor.
-  std::unique_ptr<AbstractExecutor> right_executor_;
+  std::unique_ptr<AbstractExecutor> right_child_executor_;
   // metadata identifying the outer table.
   const TableInfo *outer_table_info_;
   // metadata identifying the inner table.

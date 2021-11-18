@@ -26,6 +26,12 @@ HashJoinExecutor::HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlan
 }
 
 void HashJoinExecutor::Init() {
+  // init child executors.
+  assert(left_child_executor_ != nullptr);
+  assert(right_child_executor_ != nullptr);
+  left_child_executor_->Init();
+  right_child_executor_->Init();
+
   // hash table build phase starts.
 
   // fetch all tuples from the outer table.

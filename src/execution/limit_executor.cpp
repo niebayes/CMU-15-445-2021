@@ -21,7 +21,13 @@ LimitExecutor::LimitExecutor(ExecutorContext *exec_ctx, const LimitPlanNode *pla
   assert(plan_ != nullptr);
 }
 
-void LimitExecutor::Init() { tuple_cnt_ = 0; }
+void LimitExecutor::Init() {
+  // init the child executor.
+  assert(child_executor_ != nullptr);
+  child_executor_->Init();
+
+  tuple_cnt_ = 0;
+}
 
 bool LimitExecutor::Next(Tuple *tuple, RID *rid) {
   // check if we've reached the maximum number of tuples.
