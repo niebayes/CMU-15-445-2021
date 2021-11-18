@@ -36,6 +36,7 @@ class InsertPlanNode : public AbstractPlanNode {
    * @param raw_values the raw values to be inserted
    * @param table_oid the identifier of the table to be inserted into
    */
+  /// @bayes: a vector of values is a tuple. And a vector of vector of values is a collection of tuples.
   InsertPlanNode(std::vector<std::vector<Value>> &&raw_values, table_oid_t table_oid)
       : AbstractPlanNode(nullptr, {}), raw_values_{std::move(raw_values)}, table_oid_{table_oid} {}
 

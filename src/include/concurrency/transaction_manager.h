@@ -98,6 +98,8 @@ class TransactionManager {
   }
 
   std::atomic<txn_id_t> next_txn_id_{0};
+  /// @bayes: unused attribute to tell the compiler that the var would be unused.
+  /// FIXME(bayes): But it's used in ReleaseLocks. Shall it be changed to maybe_unused.
   LockManager *lock_manager_ __attribute__((__unused__));
   LogManager *log_manager_ __attribute__((__unused__));
 

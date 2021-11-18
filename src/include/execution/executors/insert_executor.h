@@ -59,6 +59,16 @@ class InsertExecutor : public AbstractExecutor {
  private:
   /** The insert plan node to be executed*/
   const InsertPlanNode *plan_;
+  // the child executor to obtain tuples from. Nullptr if it's the raw insert plan.
+  std::unique_ptr<AbstractExecutor> child_executor_{nullptr};
+  // metadata identifying the table to insert into.
+  const TableInfo *table_info_;
+  // all indices corresponding to this table. Maybe empty if the table has no corresponding indices.
+  std::vector<IndexInfo *> table_indices_;
+  // the index of the vector of raw values to be inserted next. Only work for raw insert plan.
+  uint32_t next_idx_{0};
+  // the number of tuples to be inserted. 0 if it's not the raw insert plan.
+  uint32_t tuple_cnt_{0};
 };
 
 }  // namespace bustub

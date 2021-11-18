@@ -46,6 +46,27 @@ enum class TransactionState { GROWING, SHRINKING, COMMITTED, ABORTED };
 /**
  * Transaction isolation level.
  */
+/// @bayes:
+/// interactions between concurrent txns:
+///   (1) other txns read committed data the current txn is accessing.
+///   (2) other txns read uncommitted data the current txn is accessing.
+///   (3) other txns update data the current txn is accessing.
+///   (4) other txns insert/delete data the current txn is accessing.
+///
+/// anomalies:
+///   dirty read        <- interaction (2).
+///   unrepeatable read <- interaction (3).
+///   phantom read      <- interaction (4).
+///
+/// isolation levels:
+///   restrict what interactions are allowed between concurrent txns.
+///   The more allowed, the more concurrency and hence the higher efficiency.
+///   But at the cost of lower isolation.
+///
+///   READ_UNCOMMITTED: allow all interactions.              And hence all anomalies can occur.
+///   READ_COMMITTED  : disallow only interaction (2).       And hence dirty read would not occur.
+///   REPEATABLE_READ : disallow interactions (2), (3).      And hence only phantom read can occur.
+///   SERIALIZABLE    : disallow interactions (2), (3), (4). And hence no anomalies.
 enum class IsolationLevel { READ_UNCOMMITTED, REPEATABLE_READ, READ_COMMITTED };
 
 /**
@@ -113,6 +134,7 @@ enum class AbortReason {
 /**
  * TransactionAbortException is thrown when state of a transaction is changed to ABORTED
  */
+/// @bayes: inheriting std::exception makes the instance of the class can be thrown by throw keyword.
 class TransactionAbortException : public std::exception {
   txn_id_t txn_id_;
   AbortReason abort_reason_;
@@ -120,8 +142,11 @@ class TransactionAbortException : public std::exception {
  public:
   explicit TransactionAbortException(txn_id_t txn_id, AbortReason abort_reason)
       : txn_id_(txn_id), abort_reason_(abort_reason) {}
+
   txn_id_t GetTransactionId() { return txn_id_; }
+
   AbortReason GetAbortReason() { return abort_reason_; }
+
   std::string GetInfo() {
     switch (abort_reason_) {
       case AbortReason::LOCK_ON_SHRINKING:

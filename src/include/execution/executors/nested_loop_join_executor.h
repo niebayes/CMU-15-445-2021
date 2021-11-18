@@ -18,6 +18,7 @@
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/nested_loop_join_plan.h"
+#include "execution/plans/seq_scan_plan.h"
 #include "storage/table/tuple.h"
 
 namespace bustub {
@@ -55,6 +56,16 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
  private:
   /** The NestedLoopJoin plan node to be executed. */
   const NestedLoopJoinPlanNode *plan_;
+  // left executor.
+  std::unique_ptr<AbstractExecutor> left_executor_;
+  // right executor.
+  std::unique_ptr<AbstractExecutor> right_executor_;
+  // metadata identifying the outer table.
+  const TableInfo *outer_table_info_;
+  // metadata identifying the outer table.
+  const TableInfo *inner_table_info_;
+  // current outer tuple.
+  Tuple outer_tuple_{};
 };
 
 }  // namespace bustub

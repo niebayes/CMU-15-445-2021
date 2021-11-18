@@ -38,6 +38,8 @@ class SimpleAggregationHashTable {
    * @param agg_exprs the aggregation expressions
    * @param agg_types the types of aggregations
    */
+  /// @bayes: store the aggregation expressions and their corresponding aggregation types. This is because the
+  /// aggregation is on tuples and for each tuple, the aggregation expressions and the aggregation types are the same.
   SimpleAggregationHashTable(const std::vector<const AbstractExpression *> &agg_exprs,
                              const std::vector<AggregationType> &agg_types)
       : agg_exprs_{agg_exprs}, agg_types_{agg_types} {}
@@ -101,6 +103,9 @@ class SimpleAggregationHashTable {
    * @param agg_key the key to be inserted
    * @param agg_val the value to be inserted
    */
+  /// @bayes: this is the core and the interface of this class. We create an instance of this class and insert aggregate
+  /// key-value pair into this instance. Each key-value pair is created from a tuple using the methods defined in
+  /// AggregationExecutor, i.e. the MakeAggregateKey and the MakeAggregateValue.
   void InsertCombine(const AggregateKey &agg_key, const AggregateValue &agg_val) {
     if (ht_.count(agg_key) == 0) {
       ht_.insert({agg_key, GenerateInitialAggregateValue()});
@@ -109,6 +114,9 @@ class SimpleAggregationHashTable {
   }
 
   /** An iterator over the aggregation hash table */
+  /// @bayes: each entry in the aggregation hash table corresponds to an aggregate key-value pair which would be emit
+  /// out one by one on each call of Next. And we use Iterator to keep tracking of the next entry to be emit out. The
+  /// emiting tuples are constructed given the aggregate value and the output schema.
   class Iterator {
    public:
     /** Creates an iterator for the aggregate map. */
@@ -165,7 +173,7 @@ class AggregationExecutor : public AbstractExecutor {
    * @param child_executor The child executor from which inserted tuples are pulled (may be `nullptr`)
    */
   AggregationExecutor(ExecutorContext *exec_ctx, const AggregationPlanNode *plan,
-                      std::unique_ptr<AbstractExecutor> &&child);
+                      std::unique_ptr<AbstractExecutor> &&child_executor);
 
   /** Initialize the aggregation */
   void Init() override;
@@ -189,7 +197,7 @@ class AggregationExecutor : public AbstractExecutor {
   AggregateKey MakeAggregateKey(const Tuple *tuple) {
     std::vector<Value> keys;
     for (const auto &expr : plan_->GetGroupBys()) {
-      keys.emplace_back(expr->Evaluate(tuple, child_->GetOutputSchema()));
+      keys.emplace_back(expr->Evaluate(tuple, child_executor_->GetOutputSchema()));
     }
     return {keys};
   }
@@ -198,7 +206,7 @@ class AggregationExecutor : public AbstractExecutor {
   AggregateValue MakeAggregateValue(const Tuple *tuple) {
     std::vector<Value> vals;
     for (const auto &expr : plan_->GetAggregates()) {
-      vals.emplace_back(expr->Evaluate(tuple, child_->GetOutputSchema()));
+      vals.emplace_back(expr->Evaluate(tuple, child_executor_->GetOutputSchema()));
     }
     return {vals};
   }
@@ -207,10 +215,10 @@ class AggregationExecutor : public AbstractExecutor {
   /** The aggregation plan node */
   const AggregationPlanNode *plan_;
   /** The child executor that produces tuples over which the aggregation is computed */
-  std::unique_ptr<AbstractExecutor> child_;
+  std::unique_ptr<AbstractExecutor> child_executor_;
   /** Simple aggregation hash table */
-  // TODO(Student): Uncomment SimpleAggregationHashTable aht_;
+  SimpleAggregationHashTable aht_;
   /** Simple aggregation hash table iterator */
-  // TODO(Student): Uncomment SimpleAggregationHashTable::Iterator aht_iterator_;
+  SimpleAggregationHashTable::Iterator aht_iterator_;
 };
 }  // namespace bustub

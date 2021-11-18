@@ -41,6 +41,9 @@ class AggregationPlanNode : public AbstractPlanNode {
    * @param aggregates The expressions that we are aggregating
    * @param agg_types The types that we are aggregating
    */
+  /// @bayes: each aggregation query may contain a GROUP BY statement which may contain multiple group-by keys, i.e.
+  /// column names. And it also may contain multiple aggregation expressions on the columns each which is of one of the
+  /// aggregation types the system has, e.g. count, sum, min and max. There's only at most one having clause.
   AggregationPlanNode(const Schema *output_schema, const AbstractPlanNode *child, const AbstractExpression *having,
                       std::vector<const AbstractExpression *> &&group_bys,
                       std::vector<const AbstractExpression *> &&aggregates, std::vector<AggregationType> &&agg_types)
@@ -78,7 +81,7 @@ class AggregationPlanNode : public AbstractPlanNode {
   const std::vector<AggregationType> &GetAggregateTypes() const { return agg_types_; }
 
  private:
-  /** A HAVING clause expression (may be `nullpre`) */
+  /** A HAVING clause expression (may be `nullptr`) */
   const AbstractExpression *having_;
   /** The GROUP BY expressions */
   std::vector<const AbstractExpression *> group_bys_;
@@ -100,6 +103,7 @@ struct AggregateKey {
    */
   bool operator==(const AggregateKey &other) const {
     for (uint32_t i = 0; i < other.group_bys_.size(); i++) {
+      /// FIXME(bayes): risky on out of range.
       if (group_bys_[i].CompareEquals(other.group_bys_[i]) != CmpBool::CmpTrue) {
         return false;
       }

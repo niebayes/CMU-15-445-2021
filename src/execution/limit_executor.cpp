@@ -16,10 +16,30 @@ namespace bustub {
 
 LimitExecutor::LimitExecutor(ExecutorContext *exec_ctx, const LimitPlanNode *plan,
                              std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx), plan_{plan}, child_executor_{std::move(child_executor)} {
+  assert(exec_ctx_ != nullptr);
+  assert(plan_ != nullptr);
+}
 
-void LimitExecutor::Init() {}
+void LimitExecutor::Init() { tuple_cnt_ = 0; }
 
-bool LimitExecutor::Next(Tuple *tuple, RID *rid) { return false; }
+bool LimitExecutor::Next(Tuple *tuple, RID *rid) {
+  // check if we've reached the maximum number of tuples.
+  if (tuple_cnt_ < plan_->GetLimit()) {
+    // fetch a tuple from the child.
+    if (child_executor_->Next(tuple, rid)) {
+      // update the number of tuples emit so far.
+      ++tuple_cnt_;
+      return true;
+
+    } else {
+      // the child has no more tuples to produce.
+      return false;
+    }
+  } else {
+    // reached the limit, stop emitting tuples.
+    return false;
+  }
+}
 
 }  // namespace bustub
