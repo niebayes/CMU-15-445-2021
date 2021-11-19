@@ -33,6 +33,12 @@ bool LockManager::CanGrantSharedLock(Transaction *txn, const RID &rid) {
   for (const auto &lock_request : lock_table_.at(rid).request_queue_) {
     Transaction *other_txn = TransactionManager::GetTransaction(lock_request.txn_id_);
     assert(other_txn != nullptr);
+
+    // skip the txn itself.
+    if (other_txn->GetTransactionId() == txn->GetTransactionId()) {
+      continue;
+    }
+
     // check only those txns that is uncommitted.
     /// FIXME(bayes): Is this assertion always true?
     assert(other_txn->GetState() != TransactionState::ABORTED);
@@ -133,6 +139,12 @@ bool LockManager::CanGrantExclusiveLock(Transaction *txn, const RID &rid) {
   for (const auto &lock_request : lock_table_.at(rid).request_queue_) {
     Transaction *other_txn = TransactionManager::GetTransaction(lock_request.txn_id_);
     assert(other_txn != nullptr);
+
+    // skip the txn itself.
+    if (other_txn->GetTransactionId() == txn->GetTransactionId()) {
+      continue;
+    }
+
     // check only those txns that is uncommitted.
     /// FIXME(bayes): Is this assertion always true?
     assert(other_txn->GetState() != TransactionState::ABORTED);
@@ -229,6 +241,12 @@ bool LockManager::CanUpgradeLock(Transaction *txn, const RID &rid) {
   for (const auto &lock_request : lock_table_.at(rid).request_queue_) {
     Transaction *other_txn = TransactionManager::GetTransaction(lock_request.txn_id_);
     assert(other_txn != nullptr);
+
+    // skip the txn itself.
+    if (other_txn->GetTransactionId() == txn->GetTransactionId()) {
+      continue;
+    }
+
     // check only those txns that is uncommitted.
     /// FIXME(bayes): Is this assertion always true?
     assert(other_txn->GetState() != TransactionState::ABORTED);
@@ -319,10 +337,7 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
 }
 
 bool LockManager::Unlock(Transaction *txn, const RID &rid) {
-  assert(txn != nullptr);
-  if (txn->GetState() == TransactionState::ABORTED) {
-    return false;
-  }
+  //! the txn manager may call Abort on aborted txns.
 
   std::unique_lock<std::mutex> lck{latch_};
 
@@ -346,8 +361,10 @@ bool LockManager::Unlock(Transaction *txn, const RID &rid) {
     return false;
   }
 
-  // set txn state to SHRINKING.
-  txn->SetState(TransactionState::SHRINKING);
+  // transition from GROWING to SHRINKING. This check is necessary.
+  if (txn->GetState() == TransactionState::GROWING) {
+    txn->SetState(TransactionState::SHRINKING);
+  }
   // delete the lock request.
   lock_queue.request_queue_.erase(iter);
   // notify other txns blocking on wait.
