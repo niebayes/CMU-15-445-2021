@@ -51,33 +51,26 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   bool delete_success{false};
 
   // get the rid of the tuple to be deleted.
-  if (child_executor_->Next(tuple, rid)) {
-    // mark the tuple as deleted.
-    /// FIXME(bayes): Is this behavior correct?
-    /// TODO(bayes): commit a PR to bustub.
-    //! TableHeap::MarkDelete return false only when the page fetching fails, i.e. the TablePage::MarkDelete called
-    //! inside it may fail and won't emit any message.
+  while (child_executor_->Next(tuple, rid)) {
     delete_success = table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction());
 
-  } else {
-    // the child has no more tuples to delete.
-    return false;
-  }
-
-  // if the delete marking succeeds, i.e. the tuple exists, also delete all corresponding indices.
-  if (delete_success) {
-    for (IndexInfo *index_info : table_indices_) {
-      /// FIXME(bayes): What does the FIXME below mean?
-      /// FIXME(bayes): Will the child executor also spit out the tuple?
-      assert(tuple != nullptr);
-      const Tuple key = tuple->KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
-                                            index_info->index_->GetKeyAttrs());
-      //! you have to pass in the rid of the key but it's unused however.
-      index_info->index_->DeleteEntry(key, key.GetRid(), exec_ctx_->GetTransaction());
+    // if the delete marking succeeds, i.e. the tuple exists, also delete all corresponding indices.
+    if (delete_success) {
+      for (IndexInfo *index_info : table_indices_) {
+        /// FIXME(bayes): What does the FIXME below mean?
+        /// FIXME(bayes): Will the child executor also spit out the tuple?
+        assert(tuple != nullptr);
+        const Tuple key = tuple->KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
+                                              index_info->index_->GetKeyAttrs());
+        //! you have to pass in the rid of the key but it's unused however.
+        index_info->index_->DeleteEntry(key, key.GetRid(), exec_ctx_->GetTransaction());
+      }
+    } else {
+      LOG_DEBUG("Mark delete fail");
     }
   }
 
-  // return false unconditionally. Throw on failures.
+  // return false unconditionally to indicate the delete is done.
   return false;
 }
 

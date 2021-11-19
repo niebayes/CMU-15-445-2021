@@ -69,7 +69,7 @@ bool AggregationExecutor::Next(Tuple *tuple, RID *rid) {
     // apply the having predicate to filter out tuples.
     //! the having clause is not mandatory.
     auto having_expr = plan_->GetHaving();
-    if (having_expr &&
+    if (having_expr == nullptr ||
         having_expr->EvaluateAggregate(aht_iterator_.Key().group_bys_, aht_iterator_.Val().aggregates_).GetAs<bool>()) {
       return true;
     }

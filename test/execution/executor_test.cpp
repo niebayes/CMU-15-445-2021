@@ -275,8 +275,8 @@ TEST_F(ExecutorTest, SimpleRawInsertWithIndexTest) {
 }
 
 // UPDATE test_3 SET colB = colB + 1;
-// TEST_F(ExecutorTest, DISABLED_SimpleUpdateTest) {
-TEST_F(ExecutorTest, SimpleUpdateTest) {
+TEST_F(ExecutorTest, DISABLED_SimpleUpdateTest) {
+  // TEST_F(ExecutorTest, SimpleUpdateTest) {
   // Construct a sequential scan of the table
   const Schema *out_schema{};
   std::unique_ptr<AbstractPlanNode> scan_plan{};
@@ -317,7 +317,6 @@ TEST_F(ExecutorTest, SimpleUpdateTest) {
   // Execute update for all tuples in the table
   GetExecutionEngine()->Execute(update_plan.get(), &result_set, GetTxn(), GetExecutorContext());
 
-  /// FIXME(bayes): What does this mean?
   // UpdateExecutor should not modify the result set
   ASSERT_EQ(result_set.size(), 0);
   result_set.clear();
@@ -337,7 +336,7 @@ TEST_F(ExecutorTest, SimpleUpdateTest) {
 
 // DELETE FROM test_1 WHERE col_a == 50;
 TEST_F(ExecutorTest, DISABLED_SimpleDeleteTest) {
-// TEST_F(ExecutorTest, SimpleDeleteTest) {
+  // TEST_F(ExecutorTest, SimpleDeleteTest) {
   // Construct query plan
   auto table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   auto &schema = table_info->schema_;
@@ -499,8 +498,8 @@ TEST_F(ExecutorTest, DISABLED_SimpleHashJoinTest) {
 }
 
 // SELECT COUNT(col_a), SUM(col_a), min(col_a), max(col_a) from test_1;
-TEST_F(ExecutorTest, DISABLED_SimpleAggregationTest) {
-  // TEST_F(ExecutorTest, SimpleAggregationTest) {
+// TEST_F(ExecutorTest, DISABLED_SimpleAggregationTest) {
+TEST_F(ExecutorTest, SimpleAggregationTest) {
   const Schema *scan_schema;
   std::unique_ptr<AbstractPlanNode> scan_plan;
   {
@@ -550,8 +549,8 @@ TEST_F(ExecutorTest, DISABLED_SimpleAggregationTest) {
 }
 
 // SELECT count(col_a), col_b, sum(col_c) FROM test_1 Group By col_b HAVING count(col_a) > 100
-TEST_F(ExecutorTest, DISABLED_SimpleGroupByAggregation) {
-  // TEST_F(ExecutorTest, SimpleGroupByAggregation) {
+// TEST_F(ExecutorTest, DISABLED_SimpleGroupByAggregation) {
+TEST_F(ExecutorTest, SimpleGroupByAggregation) {
   const Schema *scan_schema;
   std::unique_ptr<AbstractPlanNode> scan_plan;
   {

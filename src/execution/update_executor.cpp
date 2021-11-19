@@ -55,7 +55,7 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   /// until there's no tuples produced from the child executor. And then we return false unconditionally.
 
   // pull values from the child executor.
-  if (child_executor_->Next(tuple, rid)) {
+  while (child_executor_->Next(tuple, rid)) {
     // record the old tuple.
     assert(tuple != nullptr);
     old_tuple = *tuple;
@@ -64,28 +64,27 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     // apply the update to the table.
     update_success = table_info_->table_->UpdateTuple(updated_tuple, *rid, exec_ctx_->GetTransaction());
 
-  } else {
-    // the child has no more tuples to produce.
-    return false;
-  }
+    // if the update succeeds, also update the corresponding indices.
+    if (update_success) {
+      for (IndexInfo *index_info : table_indices_) {
+        // first, delete the old index entry.
+        const Tuple old_key = old_tuple.KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
+                                                     index_info->index_->GetKeyAttrs());
+        //! you have to pass in the rid of the key but it's unused however.
+        index_info->index_->DeleteEntry(old_key, old_key.GetRid(), exec_ctx_->GetTransaction());
 
-  // if the update succeeds, also update the corresponding indices.
-  if (update_success) {
-    for (IndexInfo *index_info : table_indices_) {
-      // first, delete the old index entry.
-      const Tuple old_key = old_tuple.KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
-                                                   index_info->index_->GetKeyAttrs());
-      //! you have to pass in the rid of the key but it's unused however.
-      index_info->index_->DeleteEntry(old_key, old_key.GetRid(), exec_ctx_->GetTransaction());
-
-      // then, add the updated index entry.
-      const Tuple updated_key = updated_tuple.KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
-                                                           index_info->index_->GetKeyAttrs());
-      index_info->index_->InsertEntry(updated_key, updated_tuple.GetRid(), exec_ctx_->GetTransaction());
+        // then, add the updated index entry.
+        const Tuple updated_key = updated_tuple.KeyFromTuple(
+            table_info_->schema_, *(index_info->index_->GetKeySchema()), index_info->index_->GetKeyAttrs());
+        index_info->index_->InsertEntry(updated_key, updated_tuple.GetRid(), exec_ctx_->GetTransaction());
+      }
+    } else {
+      LOG_DEBUG("Update fail");
     }
   }
 
-  return true;
+  // return false unconditionally to indicate the update is done.
+  return false;
 }
 
 Tuple UpdateExecutor::GenerateUpdatedTuple(const Tuple &src_tuple) {

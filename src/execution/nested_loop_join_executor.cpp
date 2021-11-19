@@ -78,7 +78,6 @@ bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
   // apply the predicate on the two tuples.
   const AbstractExpression *predicate = plan_->Predicate();
 
-  //! the predicate might be null.
   if (predicate == nullptr ||
       predicate->EvaluateJoin(&outer_tuple_, left_schema, &inner_tuple, right_schema).GetAs<bool>()) {
     // this pair of outer/inner tuples match, emit the output tuple.

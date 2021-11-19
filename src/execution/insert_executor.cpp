@@ -88,6 +88,8 @@ bool InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     // it's not a raw insert plan, obtain values from the child.
     assert(child_executor_ != nullptr);
 
+    /// FIXME(bayes): Shall I also change InsertExecutor to a pipeline breaker?
+
     // obtain a tuple from the child executor.
     if (child_executor_->Next(tuple, rid)) {
       // insert the produced tuple to the table.
@@ -99,15 +101,19 @@ bool InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     }
   }
 
-  // if the insertion succeeds, also modify the corresponding indices.
-  for (IndexInfo *index_info : table_indices_) {
-    assert(index_info != Catalog::NULL_INDEX_INFO);
+  if (insert_success) {
+    // if the insertion succeeds, also modify the corresponding indices.
+    for (IndexInfo *index_info : table_indices_) {
+      assert(index_info != Catalog::NULL_INDEX_INFO);
 
-    // generate a key tuple given the tuple schema and the index metadata.
-    const Tuple key = tuple->KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
-                                          index_info->index_->GetKeyAttrs());
-    // insert a new entry to the index.
-    index_info->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
+      // generate a key tuple given the tuple schema and the index metadata.
+      const Tuple key = tuple->KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
+                                            index_info->index_->GetKeyAttrs());
+      // insert a new entry to the index.
+      index_info->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
+    }
+  } else {
+    LOG_DEBUG("Insert fail");
   }
 
   return true;
