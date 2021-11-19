@@ -105,11 +105,14 @@ bool TableHeap::MarkDelete(const RID &rid, Transaction *txn) {
   if (!page->MarkDelete(rid, txn, lock_manager_, log_manager_)) {
     LOG_DEBUG("MarkDelete failed");
   }
+  /// TODO(bayes): Should be this.
+  // const bool marked_deleted = page->MarkDelete(rid, txn, lock_manager_, log_manager_);
   page->WUnlatch();
   buffer_pool_manager_->UnpinPage(page->GetTablePageId(), true);
   // Update the transaction's write set.
   txn->GetWriteSet()->emplace_back(rid, WType::DELETE, Tuple{}, this);
   return true;
+  // return marked_deleted;
 }
 
 bool TableHeap::UpdateTuple(const Tuple &tuple, const RID &rid, Transaction *txn) {

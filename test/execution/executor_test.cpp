@@ -275,8 +275,8 @@ TEST_F(ExecutorTest, SimpleRawInsertWithIndexTest) {
 }
 
 // UPDATE test_3 SET colB = colB + 1;
-TEST_F(ExecutorTest, DISABLED_SimpleUpdateTest) {
-  // TEST_F(ExecutorTest, SimpleUpdateTest) {
+// TEST_F(ExecutorTest, DISABLED_SimpleUpdateTest) {
+TEST_F(ExecutorTest, SimpleUpdateTest) {
   // Construct a sequential scan of the table
   const Schema *out_schema{};
   std::unique_ptr<AbstractPlanNode> scan_plan{};
@@ -322,7 +322,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleUpdateTest) {
   ASSERT_EQ(result_set.size(), 0);
   result_set.clear();
 
-  // Execute another sequential scan; no tuples should be present in the table
+  // Execute another sequential scan; all tuples should be present in the table
   GetExecutionEngine()->Execute(scan_plan.get(), &result_set, GetTxn(), GetExecutorContext());
 
   // Verify results after update
@@ -337,7 +337,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleUpdateTest) {
 
 // DELETE FROM test_1 WHERE col_a == 50;
 TEST_F(ExecutorTest, DISABLED_SimpleDeleteTest) {
-  // TEST_F(ExecutorTest, SimpleDeleteTest) {
+// TEST_F(ExecutorTest, SimpleDeleteTest) {
   // Construct query plan
   auto table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   auto &schema = table_info->schema_;

@@ -15,8 +15,11 @@
 
 #pragma once
 
+#include <fstream>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "common/exception.h"
