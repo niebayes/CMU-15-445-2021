@@ -9,27 +9,6 @@
 // Copyright (c) 2015-2021, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
-
-#include <thread>  // NOLINT
-#include <vector>
-
-#include "buffer/buffer_pool_manager_instance.h"
-#include "common/logger.h"
-#include "container/hash/extendible_hash_table.h"
-#include "gtest/gtest.h"
-#include "murmur3/MurmurHash3.h"
-
-//
-//                         BusTub
-//
-// grading_hash_table_scale_test.cpp
-//
-// Identification: test/container/grading_hash_table_scale_test.cpp
-//
-// Copyright (c) 2015-2021, Carnegie Mellon University Database Group
-//
-//===----------------------------------------------------------------------===//
-
 #include <algorithm>
 // NOLINTNEXTLINE
 #include <chrono>

@@ -9,12 +9,11 @@
 // Copyright (c) 2015-2019, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
+#include <utility>
+#include <vector>
 
 #include "concurrency/lock_manager.h"
 #include "concurrency/transaction_manager.h"
-
-#include <utility>
-#include <vector>
 
 namespace bustub {
 
