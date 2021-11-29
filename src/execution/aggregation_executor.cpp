@@ -48,7 +48,7 @@ void AggregationExecutor::Init() {
     const AggregateValue agg_val = MakeAggregateValue(&input_tuple);
     // insert it into the hash table to combine with the running value.
     /// FIXME(bayes): seems the move has no effect.
-    aht_.InsertCombine(std::move(agg_key), std::move(agg_val));
+    aht_.InsertCombine(agg_key, agg_val);
   }
   // post invariant: no more input tuples to produce.
 

@@ -37,15 +37,12 @@ bool LimitExecutor::Next(Tuple *tuple, RID *rid) {
       // update the number of tuples emit so far.
       ++tuple_cnt_;
       return true;
-
-    } else {
-      // the child has no more tuples to produce.
-      return false;
     }
-  } else {
-    // reached the limit, stop emitting tuples.
+    // the child has no more tuples to produce.
     return false;
   }
+  // reached the limit, stop emitting tuples.
+  return false;
 }
 
 }  // namespace bustub

@@ -37,20 +37,13 @@ bool DistinctExecutor::Next(Tuple *tuple, RID *rid) {
     if (dht_.count(dis_key) == 1) {
       // found a duplicate. Retry to check the next tuple.
       return Next(tuple, rid);
-
-    } else {
-      // no duplicate found.
-
-      // insert this key to hash table.
-      dht_.insert(dis_key);
-
-      return true;
     }
-
-  } else {
-    // the child has no more tuples to produce.
-    return false;
+    // insert this key to hash table.
+    dht_.insert(dis_key);
+    return true;
   }
+  // the child has no more tuples to produce.
+  return false;
 }
 
 }  // namespace bustub

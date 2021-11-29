@@ -82,7 +82,9 @@ bool InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     insert_success = table_info_->table_->InsertTuple(*tuple, rid, exec_ctx_->GetTransaction());
     /// FIXME(bayes): should I increment next_idx_ only if the insertion succeeds?
     // increment the index to prepare for the next Next call.
-    next_idx_ += insert_success;
+    if (insert_success) {
+      ++next_idx_;
+    }
 
   } else {
     // it's not a raw insert plan, obtain values from the child.

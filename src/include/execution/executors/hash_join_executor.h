@@ -34,12 +34,7 @@ struct JoinKey {
   Value value_;
 
   // used in std::unordered_map to compare two JoinKeys for equality.
-  bool operator==(const JoinKey &other) const {
-    if (value_.CompareEquals(other.value_) != CmpBool::CmpTrue) {
-      return false;
-    }
-    return true;
-  }
+  bool operator==(const JoinKey &other) const { return value_.CompareEquals(other.value_) == CmpBool::CmpTrue; }
 };
 
 }  // namespace bustub
@@ -97,7 +92,7 @@ class HashJoinExecutor : public AbstractExecutor {
 
     const Value value = join_expr->Evaluate(tuple, schema);
     /// FIXME(bayes): Shall I call std::move at here?
-    return {std::move(value)};
+    return {value};
   }
 
   /** The NestedLoopJoin plan node to be executed. */

@@ -62,20 +62,16 @@ bool HashJoinExecutor::Next(Tuple *tuple, RID *rid) {
       for (const Tuple &outer_tuple : jht_.at(join_key)) {
         /// TODO(bayes): how to check?
         outer_tuple.GetData();  //>! delete this.
-        if (true) {
-          return true;
-        }
+        return true;
       }
       // no truly matched pair found.
       return false;
     }
     // no, retry to check the next inner tuple.
     return Next(tuple, rid);
-
-  } else {
-    // no more inner tuples to produce. The join is done.
-    return false;
   }
+  // no more inner tuples to produce. The join is done.
+  return false;
 }
 
 }  // namespace bustub

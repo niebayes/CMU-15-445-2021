@@ -41,6 +41,7 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
   //! TableIterator++ will call GetNextTupleId which would skip tuples marked deleted.
   //! So deleted tuples won't be spit out.
   while (table_it_ != table_info_->table_->End()) {
+    bool flag{false};
     if (predicate == nullptr || predicate->Evaluate(&(*table_it_), &table_info_->schema_).GetAs<bool>()) {
       // found a tuple that satisfies the predicate.
 
@@ -95,11 +96,14 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
       // increment the iterator to prepare for the next Next call.
       ++table_it_;
 
-      return true;
+      flag = true;
 
     } else {
       // this tuple does not satisfy the predicate, proceed to the next tuple.
       ++table_it_;
+    }
+    if (flag) {
+      return true;
     }
   }
   // if we've reached the end, return false to indicate the scanning is done.
