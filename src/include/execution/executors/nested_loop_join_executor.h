@@ -50,7 +50,7 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
    */
   bool Next(Tuple *tuple, RID *rid) override;
 
-  /** @return The output schema for the insert */
+  /** @return The output schema for the join */
   const Schema *GetOutputSchema() override { return plan_->OutputSchema(); };
 
  private:
@@ -60,12 +60,10 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> left_child_executor_;
   // right executor.
   std::unique_ptr<AbstractExecutor> right_child_executor_;
-  // metadata identifying the outer table.
-  const TableInfo *outer_table_info_;
-  // metadata identifying the inner table.
-  const TableInfo *inner_table_info_;
   // current outer tuple.
-  Tuple outer_tuple_{};
+  Tuple left_tuple_{};
+  // is the join done?
+  bool done_{false};
 };
 
 }  // namespace bustub
