@@ -33,8 +33,8 @@ DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *
   }
 
   // get all indices corresponding to this table. Empty if the table has no corresponding indices.
-  table_indices_ = catalog->GetTableIndexes(table_info_->name_);
-  for (const IndexInfo *index_info : table_indices_) {
+  table_indexes_ = catalog->GetTableIndexes(table_info_->name_);
+  for (const IndexInfo *index_info : table_indexes_) {
     if (index_info == Catalog::NULL_INDEX_INFO) {
       throw Exception(ExceptionType::INVALID, "Index not found");
     }
@@ -48,30 +48,29 @@ void DeleteExecutor::Init() {
 }
 
 bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
-  bool delete_success{false};
-
   // get the rid of the tuple to be deleted.
   while (child_executor_->Next(tuple, rid)) {
-    delete_success = table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction());
-
+    const bool deleted = table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction());
     // if the delete marking succeeds, i.e. the tuple exists, also delete all corresponding indices.
-    if (delete_success) {
-      for (IndexInfo *index_info : table_indices_) {
-        /// FIXME(bayes): What does the FIXME below mean?
-        /// FIXME(bayes): Will the child executor also spit out the tuple?
-        assert(tuple != nullptr);
-        const Tuple key = tuple->KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
-                                              index_info->index_->GetKeyAttrs());
-        //! you have to pass in the rid of the key but it's unused however.
-        index_info->index_->DeleteEntry(key, key.GetRid(), exec_ctx_->GetTransaction());
-      }
-    } else {
-      LOG_DEBUG("Mark delete fail");
+    if (deleted) {
+      DeleteIndexes(tuple, rid);
     }
   }
 
-  // return false unconditionally to indicate the delete is done.
+  // always return false to avoid not modify result set.
   return false;
+}
+
+void DeleteExecutor::DeleteIndexes(Tuple *tuple, RID *rid) {
+  for (IndexInfo *index_info : table_indexes_) {
+    /// FIXME(bayes): What does the FIXME below mean?
+    /// FIXME(bayes): Will the child executor also spit out the tuple?
+    assert(tuple != nullptr);
+    const Tuple key =
+        tuple->KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
+    //! the rid is the one associated with the deleted tuple.
+    index_info->index_->DeleteEntry(key, *rid, exec_ctx_->GetTransaction());
+  }
 }
 
 }  // namespace bustub

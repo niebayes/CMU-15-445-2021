@@ -56,6 +56,8 @@ class DeleteExecutor : public AbstractExecutor {
   const Schema *GetOutputSchema() override { return plan_->OutputSchema(); };
 
  private:
+  void DeleteIndexes(Tuple *tuple, RID *rid);
+
   /** The delete plan node to be executed */
   const DeletePlanNode *plan_;
   /** The child executor from which RIDs for deleted tuples are pulled */
@@ -63,6 +65,6 @@ class DeleteExecutor : public AbstractExecutor {
   // metadata identifying the table of which tuples should be deleted.
   const TableInfo *table_info_;
   // all indices corresponding to this table. Maybe empty if the table has no corresponding indices.
-  std::vector<IndexInfo *> table_indices_;
+  std::vector<IndexInfo *> table_indexes_;
 };
 }  // namespace bustub
