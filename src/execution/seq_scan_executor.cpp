@@ -15,6 +15,7 @@
 #include <cassert>
 
 #include "execution/executors/seq_scan_executor.h"
+#include "type/value.h"
 
 namespace bustub {
 
@@ -45,51 +46,17 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
     if (predicate == nullptr || predicate->Evaluate(&(*table_it_), &table_info_->schema_).GetAs<bool>()) {
       // found a tuple that satisfies the predicate.
 
-      // what columns the output schema has.
-      const Schema *output_schema = GetOutputSchema();
-      assert(output_schema != nullptr);
-      const std::vector<Column> &output_cols = output_schema->GetColumns();
-      assert(!output_cols.empty());
-
-      // what columns the input schema has.
-      const Schema *input_schema = &table_info_->schema_;
-      assert(input_schema != nullptr);
-      const std::vector<Column> &input_cols = input_schema->GetColumns();
-      assert(!input_cols.empty());
-
-      /// FIXME(bayes): Is this always true? Won't there be some replica?
-      // the output schema must be the superset of the input schema.
-      assert(input_cols.size() >= output_cols.size());
-
-      // values corresponding to the output schema.
+      // retrieve values from the input table given the output schema.
+      const Schema* output_schema = plan_->OutputSchema();
       std::vector<Value> values;
-      /// FIXME(bayes): Get values in this way?
-      // const Value value = output_cols.front().GetExpr()->Evaluate(&(*table_it_), &table_info_->schema_);
-
-      // use this to deduplicate columns of the same name.
-      std::unordered_set<uint32_t> added_col_indices;
-
-      // collect values from the input tuple that the output schema requires.
-      for (const Column &col : output_cols) {
-        const std::string &col_name{col.GetName()};
-        // find the index of the column in the input schema given its name.
-        bool found{false};
-        for (uint32_t col_idx = 0; col_idx < input_cols.size(); ++col_idx) {
-          if (input_cols.at(col_idx).GetName() == col_name && added_col_indices.count(col_idx) == 0) {
-            found = true;
-            values.push_back(table_it_->GetValue(input_schema, col_idx));
-            added_col_indices.insert(col_idx);
-            break;
-          }
-        }
-        if (!found) {
-          throw Exception(ExceptionType::INVALID, "Matched column not found");
-        }
+      values.reserve(output_schema->GetColumnCount());
+      for (const Column& col : output_schema->GetColumns()) {
+        // the value is obtained by evaluating the input tuple according to the expression of the given output schema.
+        Value val = col.GetExpr()->Evaluate(&(*table_it_), &table_info_->schema_);
+        values.emplace_back(std::move(val));
       }
-      // check if we've collected all required values.
-      assert(values.size() == output_cols.size());
 
-      // create a new tuple given the values and the schema.
+      // create a new tuple given the values and the output schema.
       *tuple = Tuple(values, output_schema);
       *rid = tuple->GetRid();
 
