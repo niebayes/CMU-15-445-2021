@@ -66,6 +66,8 @@ class UpdateExecutor : public AbstractExecutor {
    */
   Tuple GenerateUpdatedTuple(const Tuple &src_tuple);
 
+  void UpdateIndexes(Tuple &&old_tuple, Tuple &&updated_tuple, const RID &rid);
+
   /** The update plan node to be executed */
   const UpdatePlanNode *plan_;
   /** Metadata identifying the table that should be updated */
@@ -73,6 +75,6 @@ class UpdateExecutor : public AbstractExecutor {
   /** The child executor to obtain value from */
   std::unique_ptr<AbstractExecutor> child_executor_;
   // all indices corresponding to this table. Maybe empty if the table has no corresponding indices.
-  std::vector<IndexInfo *> table_indices_;
+  std::vector<IndexInfo *> table_indexes_;
 };
 }  // namespace bustub

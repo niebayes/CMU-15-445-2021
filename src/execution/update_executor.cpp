@@ -32,8 +32,8 @@ UpdateExecutor::UpdateExecutor(ExecutorContext *exec_ctx, const UpdatePlanNode *
   }
 
   // get all indices corresponding to this table. Empty if the table has no corresponding indices.
-  table_indices_ = catalog->GetTableIndexes(table_info_->name_);
-  for (const IndexInfo *index_info : table_indices_) {
+  table_indexes_ = catalog->GetTableIndexes(table_info_->name_);
+  for (const IndexInfo *index_info : table_indexes_) {
     if (index_info == Catalog::NULL_INDEX_INFO) {
       throw Exception(ExceptionType::INVALID, "Index not found");
     }
@@ -41,49 +41,27 @@ UpdateExecutor::UpdateExecutor(ExecutorContext *exec_ctx, const UpdatePlanNode *
 }
 
 void UpdateExecutor::Init() {
-  // init the child executor properly.
+  // init the child executor.
   assert(child_executor_ != nullptr);
   child_executor_->Init();
 }
 
 bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
-  Tuple old_tuple{};
-  Tuple updated_tuple{};
-  bool update_success{false};
-
-  /// TODO(bayes): The only solution to pass the update_executor local test is to wrap the current Next in a while loop
-  /// until there's no tuples produced from the child executor. And then we return false unconditionally.
-
   // pull values from the child executor.
   while (child_executor_->Next(tuple, rid)) {
-    // record the old tuple.
     assert(tuple != nullptr);
-    old_tuple = *tuple;
+    Tuple old_tuple = *tuple;
     // generate the updated tuple from the old tuple given the update attributes.
-    updated_tuple = GenerateUpdatedTuple(old_tuple);
+    Tuple updated_tuple = GenerateUpdatedTuple(old_tuple);
     // apply the update to the table.
-    update_success = table_info_->table_->UpdateTuple(updated_tuple, *rid, exec_ctx_->GetTransaction());
-
-    // if the update succeeds, also update the corresponding indices.
-    if (update_success) {
-      for (IndexInfo *index_info : table_indices_) {
-        // first, delete the old index entry.
-        const Tuple old_key = old_tuple.KeyFromTuple(table_info_->schema_, *(index_info->index_->GetKeySchema()),
-                                                     index_info->index_->GetKeyAttrs());
-        //! you have to pass in the rid of the key but it's unused however.
-        index_info->index_->DeleteEntry(old_key, old_key.GetRid(), exec_ctx_->GetTransaction());
-
-        // then, add the updated index entry.
-        const Tuple updated_key = updated_tuple.KeyFromTuple(
-            table_info_->schema_, *(index_info->index_->GetKeySchema()), index_info->index_->GetKeyAttrs());
-        index_info->index_->InsertEntry(updated_key, updated_tuple.GetRid(), exec_ctx_->GetTransaction());
-      }
-    } else {
-      LOG_DEBUG("Update fail");
+    const bool updated = table_info_->table_->UpdateTuple(updated_tuple, *rid, exec_ctx_->GetTransaction());
+    // if the update succeeds, also update the corresponding indexes.
+    if (updated) {
+      UpdateIndexes(std::move(old_tuple), std::move(updated_tuple), *rid);
     }
   }
 
-  // return false unconditionally to indicate the update is done.
+  // always return false to not modify result set.
   return false;
 }
 
@@ -109,6 +87,23 @@ Tuple UpdateExecutor::GenerateUpdatedTuple(const Tuple &src_tuple) {
     }
   }
   return Tuple{values, &schema};
+}
+
+void UpdateExecutor::UpdateIndexes(Tuple &&old_tuple, Tuple &&updated_tuple, const RID &rid) {
+  for (IndexInfo *index_info : table_indexes_) {
+    assert(index_info != Catalog::NULL_INDEX_INFO);
+
+    // first, delete the old index entry.
+    const Tuple old_key =
+        old_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
+    index_info->index_->DeleteEntry(old_key, old_key.GetRid(), exec_ctx_->GetTransaction());
+
+    // then, add the updated index entry.
+    //! the updated key reuses the rid of the tuple to be updated.
+    const Tuple updated_key =
+        updated_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
+    index_info->index_->InsertEntry(updated_key, rid, exec_ctx_->GetTransaction());
+  }
 }
 
 }  // namespace bustub

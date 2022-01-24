@@ -54,12 +54,12 @@ class InsertExecutor : public AbstractExecutor {
    */
   bool Next([[maybe_unused]] Tuple *tuple, RID *rid) override;
 
-  void UpdateIndexes(Tuple *tuple, RID *rid);
-
   /** @return The output schema for the insert */
   const Schema *GetOutputSchema() override { return plan_->OutputSchema(); };
 
  private:
+  void UpdateIndexes(Tuple *tuple, RID *rid);
+
   /** The insert plan node to be executed*/
   const InsertPlanNode *plan_;
   // the child executor to obtain tuples from. Nullptr if it's a raw insert plan.

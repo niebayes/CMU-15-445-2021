@@ -39,8 +39,6 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
   // scan the table tuple by tuple and spit out the next tuple that satisfies the predicate.
   const AbstractExpression *predicate = plan_->GetPredicate();
 
-  //! TableIterator++ will call GetNextTupleId which would skip tuples marked deleted.
-  //! So deleted tuples won't be spit out.
   while (table_it_ != table_info_->table_->End()) {
     bool flag{false};
     if (predicate == nullptr || predicate->Evaluate(&(*table_it_), &table_info_->schema_).GetAs<bool>()) {
@@ -58,7 +56,8 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
 
       // create a new tuple given the values and the output schema.
       *tuple = Tuple(values, output_schema);
-      *rid = tuple->GetRid();
+      //! the rid is the one associated with the input tuple.
+      *rid = table_it_->GetRid();
 
       // increment the iterator to prepare for the next Next call.
       ++table_it_;
