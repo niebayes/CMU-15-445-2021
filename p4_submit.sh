@@ -1,4 +1,4 @@
-zip project3-submission.zip \
+zip project4-submission.zip \
 src/include/buffer/lru_replacer.h \
 src/buffer/lru_replacer.cpp \
 src/include/buffer/buffer_pool_manager_instance.h \
