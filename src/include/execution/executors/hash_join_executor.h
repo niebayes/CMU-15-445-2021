@@ -14,6 +14,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -84,14 +85,12 @@ class HashJoinExecutor : public AbstractExecutor {
   const Schema *GetOutputSchema() override { return plan_->OutputSchema(); };
 
  private:
-  /// FIXME(bayes): Shall I use left and right join expressions to make the join key?
   JoinKey MakeJoinKey(const Tuple *tuple, const Schema *schema, const AbstractExpression *join_expr) {
     assert(tuple != nullptr);
     assert(schema != nullptr);
     assert(join_expr != nullptr);
 
     const Value value = join_expr->Evaluate(tuple, schema);
-    /// FIXME(bayes): Shall I call std::move at here?
     return {value};
   }
 
@@ -105,6 +104,10 @@ class HashJoinExecutor : public AbstractExecutor {
   // hash table for hash join.
   //! using vector of tuples to handle the case where there exists multiple tuples having the same join key.
   std::unordered_map<JoinKey, std::vector<Tuple>> jht_{};
+  // current right tuple.
+  Tuple right_tuple_{};
+  // matched left tuples of the current right tuple.
+  std::unordered_set<int> matched_left_tuples_{};
 };
 
 }  // namespace bustub

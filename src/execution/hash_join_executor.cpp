@@ -20,10 +20,18 @@ HashJoinExecutor::HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlan
     : AbstractExecutor(exec_ctx),
       plan_{plan},
       left_child_executor_{std::move(left_child_executor)},
-      right_child_executor_{std::move(right_child_executor)} {
-  assert(exec_ctx_ != nullptr);
-  assert(plan_ != nullptr);
-}
+      right_child_executor_{std::move(right_child_executor)} {}
+
+// hash join algorithm:
+// build phase:
+//   for each tuple in left table
+//     make the join key and insert into the hash table.
+//
+// probe phase:
+//   for each tuple in right table
+//     make the join key and probe the hash table.
+//       if found a matched key, compare all tuples to see if they really match.
+//         if trully match, emit out the joined tuple.
 
 void HashJoinExecutor::Init() {
   // init child executors.
@@ -32,46 +40,74 @@ void HashJoinExecutor::Init() {
   left_child_executor_->Init();
   right_child_executor_->Init();
 
-  // hash table build phase starts.
-
-  // fetch all tuples from the outer table.
-  Tuple outer_tuple{};
+  // build phase.
+  Tuple left_tuple{};
   RID rid;
-  // loop invariant: there's still outer tuples produced.
-  while (left_child_executor_->Next(&outer_tuple, &rid)) {
-    const JoinKey join_key =
-        MakeJoinKey(&outer_tuple, left_child_executor_->GetOutputSchema(), plan_->LeftJoinKeyExpression());
-    //! since the outer_tuple is an automatic var which gets recycled after leaving the function scope, we have to
-    //! store Tuple in the hash table.
-    jht_[join_key].emplace_back(std::move(outer_tuple));
+  while (left_child_executor_->Next(&left_tuple, &rid)) {
+    // make a join key from the tuple.
+    const JoinKey left_join_key =
+        MakeJoinKey(&left_tuple, left_child_executor_->GetOutputSchema(), plan_->LeftJoinKeyExpression());
+    jht_[left_join_key].push_back(left_tuple);
   }
-  // post invariant: no more outer tuples to produce.
 
-  // hash table build phase done.
+  // fetch the first right tuple.
+  right_child_executor_->Next(&right_tuple_, &rid);
 }
 
 bool HashJoinExecutor::Next(Tuple *tuple, RID *rid) {
-  // fetch a tuple from the inner table.
-  if (right_child_executor_->Next(tuple, rid)) {
-    // hash the tuple to a join key.
-    const JoinKey join_key =
-        MakeJoinKey(tuple, right_child_executor_->GetOutputSchema(), plan_->RightJoinKeyExpression());
-    // probe the join hash table to see if there's a potential matching outer tuple.
-    if (jht_.count(join_key) == 1) {
-      // yes, but we have to examine the original values to determine whether the outer/inner tuples are truly matching.
-      for (const Tuple &outer_tuple : jht_.at(join_key)) {
-        /// TODO(bayes): how to check?
-        outer_tuple.GetData();  //>! delete this.
+  // if the right table is empty, immediately return.
+  if (right_tuple_.GetLength() == 0) {
+    return false;
+  }
+
+  // make a join key from the right tuple.
+  const JoinKey right_join_key =
+      MakeJoinKey(&right_tuple_, right_child_executor_->GetOutputSchema(), plan_->RightJoinKeyExpression());
+
+  // probe the hash table to see if there's a potential matching left tuple.
+  if (jht_.count(right_join_key) == 1) {
+    // match by comparing rids.
+    const auto &left_tuples = jht_.at(right_join_key);
+    for (int i = 0; i < static_cast<int>(left_tuples.size()); ++i) {
+      // skip duplicate matched pairs.
+      if (matched_left_tuples_.count(i) == 1) {
+        continue;
+      }
+
+      const Tuple &left_tuple = left_tuples[i];
+
+      if (left_tuple.GetRid() == right_tuple_.GetRid()) {
+        // construct the output tuple from the given output schema by retrieving values from the joined tuples.
+        const Schema *output_schema = GetOutputSchema();
+        std::vector<Value> values;
+        values.reserve(output_schema->GetColumnCount());
+        for (const Column &col : output_schema->GetColumns()) {
+          Value val = col.GetExpr()->EvaluateJoin(&left_tuple, left_child_executor_->GetOutputSchema(), &right_tuple_,
+                                                  right_child_executor_->GetOutputSchema());
+          values.emplace_back(std::move(val));
+        }
+
+        // create a new tuple given the values and the schema.
+        *tuple = Tuple(values, output_schema);
+        //! no need to set rid.
+
+        // add to matched left tuples for this right tuple.
+        matched_left_tuples_.insert(i);
+
         return true;
       }
-      // no truly matched pair found.
-      return false;
     }
-    // no, retry to check the next inner tuple.
-    return Next(tuple, rid);
   }
-  // no more inner tuples to produce. The join is done.
-  return false;
+  // if there's no matched one, fetch the next right tuple.
+  if (!right_child_executor_->Next(&right_tuple_, rid)) {
+    // the right table is exhausted, the join is done.
+    return false;
+  }
+  // reset matched tuples.
+  matched_left_tuples_ = std::unordered_set<int>{};
+
+  // otherwise, proceed to check the next right tuple until found a matched one or the right table is exhausted.
+  return Next(tuple, rid);
 }
 
 }  // namespace bustub
