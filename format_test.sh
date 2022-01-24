@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /home/lzx/bustub/build
+cd /home/lzx/Documents/courses/cmu15-445/labs_2021/bustub/build
 
 # format tests.
 make format -j8

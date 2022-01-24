@@ -47,10 +47,10 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
       // found a tuple that satisfies the predicate.
 
       // retrieve values from the input table given the output schema.
-      const Schema* output_schema = plan_->OutputSchema();
+      const Schema *output_schema = plan_->OutputSchema();
       std::vector<Value> values;
       values.reserve(output_schema->GetColumnCount());
-      for (const Column& col : output_schema->GetColumns()) {
+      for (const Column &col : output_schema->GetColumns()) {
         // the value is obtained by evaluating the input tuple according to the expression of the given output schema.
         Value val = col.GetExpr()->Evaluate(&(*table_it_), &table_info_->schema_);
         values.emplace_back(std::move(val));

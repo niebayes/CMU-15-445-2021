@@ -61,7 +61,6 @@ class ExecutionEngine {
       Tuple tuple;
       RID rid;
       while (executor->Next(&tuple, &rid)) {
-        /// FIXME(bayes): Shall I modify the logic around here to only collect non-null tuples?
         if (result_set != nullptr) {
           result_set->push_back(tuple);
         }
