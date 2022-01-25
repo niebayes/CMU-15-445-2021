@@ -92,7 +92,7 @@ using HashFunctionType = HashFunction<KeyType>;
  ****************************************************************/
 
 // SELECT col_a, col_b FROM test_1 WHERE col_a < 500
-TEST_F(ExecutorTest, DISABLED_SimpleSeqScanTest) {
+TEST_F(ExecutorTest, SimpleSeqScanTest) {
   // Construct query plan
   TableInfo *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   const Schema &schema = table_info->schema_;
@@ -116,7 +116,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleSeqScanTest) {
 }
 
 // SELECT colA, colB FROM test_1
-TEST_F(ExecutorTest, DISABLED_SequentialScan) {
+TEST_F(ExecutorTest, SequentialScan) {
   // Construct query plan
   TableInfo *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   Schema &schema = table_info->schema_;
@@ -134,7 +134,7 @@ TEST_F(ExecutorTest, DISABLED_SequentialScan) {
 }
 
 // SELECT colA, colB FROM test_1 WHERE colA < 500
-TEST_F(ExecutorTest, DISABLED_SequentialScanWithPredicate) {
+TEST_F(ExecutorTest, SequentialScanWithPredicate) {
   // Construct query plan
   TableInfo *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   Schema &schema = table_info->schema_;
@@ -159,7 +159,7 @@ TEST_F(ExecutorTest, DISABLED_SequentialScanWithPredicate) {
 }
 
 // SELECT colA, colB FROM test_1 WHERE colA > 1000
-TEST_F(ExecutorTest, DISABLED_SequentialScanWithZeroMatchPredicate) {
+TEST_F(ExecutorTest, SequentialScanWithZeroMatchPredicate) {
   // Construct query plan
   TableInfo *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   Schema &schema = table_info->schema_;
@@ -179,7 +179,7 @@ TEST_F(ExecutorTest, DISABLED_SequentialScanWithZeroMatchPredicate) {
 }
 
 // SELECT colA FROM empty_table
-TEST_F(ExecutorTest, DISABLED_SequentialScanEmptyTable) {
+TEST_F(ExecutorTest, SequentialScanEmptyTable) {
   // Construct query plan
   TableInfo *table_info = GetExecutorContext()->GetCatalog()->GetTable("empty_table");
   Schema &schema = table_info->schema_;
@@ -196,7 +196,7 @@ TEST_F(ExecutorTest, DISABLED_SequentialScanEmptyTable) {
 }
 
 // SELECT colA, colB, colC FROM test_7
-TEST_F(ExecutorTest, DISABLED_SequentialScanCyclicColumn) {
+TEST_F(ExecutorTest, SequentialScanCyclicColumn) {
   // Construct query plan
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_7");
   auto &schema = table_info->schema_;
@@ -223,7 +223,7 @@ TEST_F(ExecutorTest, DISABLED_SequentialScanCyclicColumn) {
 }
 
 // SELECT colA AS col1, colB AS col2 FROM test_1
-TEST_F(ExecutorTest, DISABLED_SchemaChangeSequentialScan) {
+TEST_F(ExecutorTest, SchemaChangeSequentialScan) {
   // Construct query plan
   TableInfo *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   Schema &schema = table_info->schema_;
@@ -241,7 +241,7 @@ TEST_F(ExecutorTest, DISABLED_SchemaChangeSequentialScan) {
 }
 
 // INSERT INTO empty_table2 VALUES (100, 10), (101, 11), (102, 12)
-TEST_F(ExecutorTest, DISABLED_SimpleRawInsertTest) {
+TEST_F(ExecutorTest, SimpleRawInsertTest) {
   // Create Values to insert
   std::vector<Value> val1{ValueFactory::GetIntegerValue(100), ValueFactory::GetIntegerValue(10)};
   std::vector<Value> val2{ValueFactory::GetIntegerValue(101), ValueFactory::GetIntegerValue(11)};
@@ -283,7 +283,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleRawInsertTest) {
 }
 
 // INSERT INTO empty_table2 SELECT col_a, col_b FROM test_1 WHERE col_a < 500
-TEST_F(ExecutorTest, DISABLED_SimpleSelectInsertTest) {
+TEST_F(ExecutorTest, SimpleSelectInsertTest) {
   const Schema *out_schema1;
   std::unique_ptr<AbstractPlanNode> scan_plan1;
   {
@@ -335,7 +335,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleSelectInsertTest) {
 }
 
 // INSERT INTO empty_table2 VALUES (100, 10), (101, 11), (102, 12)
-TEST_F(ExecutorTest, DISABLED_SimpleRawInsertWithIndexTest) {
+TEST_F(ExecutorTest, SimpleRawInsertWithIndexTest) {
   // Create Values to insert
   std::vector<Value> val1{ValueFactory::GetIntegerValue(100), ValueFactory::GetIntegerValue(10)};
   std::vector<Value> val2{ValueFactory::GetIntegerValue(101), ValueFactory::GetIntegerValue(11)};
@@ -400,7 +400,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleRawInsertWithIndexTest) {
 }
 
 // INSERT INTO empty_table2 VALUES (100, 10), (101, 11), (102, 12)
-TEST_F(ExecutorTest, DISABLED_RawInsert1) {
+TEST_F(ExecutorTest, RawInsert1) {
   // Create Values to insert
   std::vector<Value> val1{ValueFactory::GetIntegerValue(100), ValueFactory::GetIntegerValue(10)};
   std::vector<Value> val2{ValueFactory::GetIntegerValue(101), ValueFactory::GetIntegerValue(11)};
@@ -444,7 +444,7 @@ TEST_F(ExecutorTest, DISABLED_RawInsert1) {
 }
 
 // INSERT INTO empty_table2 VALUES (200, 20), (201, 21), (202, 22)
-TEST_F(ExecutorTest, DISABLED_RawInsert2) {
+TEST_F(ExecutorTest, RawInsert2) {
   // Create Values to insert
   std::vector<Value> val1{ValueFactory::GetIntegerValue(200), ValueFactory::GetIntegerValue(20)};
   std::vector<Value> val2{ValueFactory::GetIntegerValue(201), ValueFactory::GetIntegerValue(21)};
@@ -512,7 +512,7 @@ TEST_F(ExecutorTest, DISABLED_RawInsert2) {
 }
 
 // INSERT INTO empty_table2 SELECT colA, colB FROM test_1
-TEST_F(ExecutorTest, DISABLED_SelectInsertSequentialScan1) {
+TEST_F(ExecutorTest, SelectInsertSequentialScan1) {
   std::vector<Tuple> result_set{};
 
   // Construct a sequential scan of test_1
@@ -572,7 +572,7 @@ TEST_F(ExecutorTest, DISABLED_SelectInsertSequentialScan1) {
 }
 
 // INSERT INTO empty_table2 SELECT colA, colB FROM test_1 WHERE colA < 500
-TEST_F(ExecutorTest, DISABLED_SelectInsertSequentialScan2) {
+TEST_F(ExecutorTest, SelectInsertSequentialScan2) {
   std::vector<Tuple> result_set{};
 
   // Construct a sequential scan of test_1
@@ -631,7 +631,7 @@ TEST_F(ExecutorTest, DISABLED_SelectInsertSequentialScan2) {
 }
 
 // INSERT INTO empty_table3 SELECT colA, colB FROM test_4 WHERE colA >= 50
-TEST_F(ExecutorTest, DISABLED_SelectInsertSequentialScan3) {
+TEST_F(ExecutorTest, SelectInsertSequentialScan3) {
   const Schema *out_schema1;
   std::unique_ptr<AbstractPlanNode> scan_plan1;
   {
@@ -712,7 +712,7 @@ TEST_F(ExecutorTest, DISABLED_SelectInsertSequentialScan3) {
 }
 
 // INSERT INTO empty_table3 VALUES (100, 10), (101, 11), (102, 12)
-TEST_F(ExecutorTest, DISABLED_RawInsertWithIndex1) {
+TEST_F(ExecutorTest, RawInsertWithIndex1) {
   std::vector<Tuple> result_set{};
 
   // Create Values to insert
@@ -787,7 +787,7 @@ TEST_F(ExecutorTest, DISABLED_RawInsertWithIndex1) {
 }
 
 // INSERT INTO empty_table3 (SELECT colA, colB FROM test_4)
-TEST_F(ExecutorTest, DISABLED_SequentialInsertWithIndex) {
+TEST_F(ExecutorTest, SequentialInsertWithIndex) {
   std::vector<Tuple> result_set{};
 
   // Construct sequential scan plan
@@ -853,7 +853,7 @@ TEST_F(ExecutorTest, DISABLED_SequentialInsertWithIndex) {
 }
 
 // UPDATE test_3 SET colB = colB + 1;
-TEST_F(ExecutorTest, DISABLED_SimpleUpdateTest) {
+TEST_F(ExecutorTest, SimpleUpdateTest) {
   // Construct a sequential scan of the table
   const Schema *out_schema{};
   std::unique_ptr<AbstractPlanNode> scan_plan{};
@@ -912,7 +912,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleUpdateTest) {
 }
 
 // Addition update
-TEST_F(ExecutorTest, DISABLED_UpdateTableAdd) {
+TEST_F(ExecutorTest, UpdateTableAdd) {
   // Construct a sequential scan of the table
   std::unique_ptr<AbstractPlanNode> scan_plan{};
   const Schema *out_schema{};
@@ -971,7 +971,7 @@ TEST_F(ExecutorTest, DISABLED_UpdateTableAdd) {
 }
 
 // Set update
-TEST_F(ExecutorTest, DISABLED_UpdateTableSet) {
+TEST_F(ExecutorTest, UpdateTableSet) {
   // Construct a sequential scan of the table
   std::unique_ptr<AbstractPlanNode> scan_plan{};
   const Schema *out_schema{};
@@ -1030,7 +1030,7 @@ TEST_F(ExecutorTest, DISABLED_UpdateTableSet) {
 }
 
 // Set update
-TEST_F(ExecutorTest, DISABLED_UpdateTableSetWithIndex) {
+TEST_F(ExecutorTest, UpdateTableSetWithIndex) {
   // Construct a sequential scan of the table
   const Schema *out_schema{};
   std::unique_ptr<SeqScanPlanNode> scan_plan{};
@@ -1131,7 +1131,7 @@ TEST_F(ExecutorTest, DISABLED_UpdateTableSetWithIndex) {
   }
 }
 
-TEST_F(ExecutorTest, DISABLED_UpdateIntegrated) {
+TEST_F(ExecutorTest, UpdateIntegrated) {
   // INSERT INTO empty_table3 SELECT colA, colA FROM test_4;
   const Schema *out_schema1;
   std::unique_ptr<AbstractPlanNode> scan_plan1;
@@ -1220,7 +1220,7 @@ TEST_F(ExecutorTest, DISABLED_UpdateIntegrated) {
 }
 
 // DELETE FROM test_1 WHERE col_a == 50;
-TEST_F(ExecutorTest, DISABLED_SimpleDeleteTest) {
+TEST_F(ExecutorTest, SimpleDeleteTest) {
   // Construct query plan
   auto table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   auto &schema = table_info->schema_;
@@ -1264,7 +1264,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleDeleteTest) {
   ASSERT_TRUE(rids.empty());
 }
 
-TEST_F(ExecutorTest, DISABLED_DeleteEntireTable) {
+TEST_F(ExecutorTest, DeleteEntireTable) {
   // Construct a sequential scan of the table
   const Schema *out_schema{};
   std::unique_ptr<AbstractPlanNode> scan_plan{};
@@ -1305,7 +1305,7 @@ TEST_F(ExecutorTest, DISABLED_DeleteEntireTable) {
   ASSERT_EQ(result_set.size(), 0);
 }
 
-TEST_F(ExecutorTest, DISABLED_DeleteEntireTableWithIndex) {
+TEST_F(ExecutorTest, DeleteEntireTableWithIndex) {
   // Construct a sequential scan of the table
   const Schema *out_schema{};
   std::unique_ptr<AbstractPlanNode> scan_plan{};
@@ -1381,7 +1381,7 @@ TEST_F(ExecutorTest, DISABLED_DeleteEntireTableWithIndex) {
 }
 
 // Delete a single tuple from a table
-TEST_F(ExecutorTest, DISABLED_DeleteSingleTuple) {
+TEST_F(ExecutorTest, DeleteSingleTuple) {
   // Construct a scan of the table that selects only a single tuple
   const Schema *scan_schema;
   std::unique_ptr<SeqScanPlanNode> scan_plan;
@@ -1453,7 +1453,7 @@ TEST_F(ExecutorTest, DISABLED_DeleteSingleTuple) {
   }
 }
 
-TEST_F(ExecutorTest, DISABLED_DeleteIntegrated) {
+TEST_F(ExecutorTest, DeleteIntegrated) {
   // SELECT colA FROM test_1 WHERE colA < 50
   const Schema *output_schema;
   std::unique_ptr<SeqScanPlanNode> scan_plan;
@@ -1499,7 +1499,7 @@ TEST_F(ExecutorTest, DISABLED_DeleteIntegrated) {
 }
 
 // SELECT test_1.col_a, test_1.col_b, test_2.col1, test_2.col3 FROM test_1 JOIN test_2 ON test_1.col_a = test_2.col1;
-TEST_F(ExecutorTest, DISABLED_SimpleNestedLoopJoinTest) {
+TEST_F(ExecutorTest, SimpleNestedLoopJoinTest) {
   const Schema *out_schema1;
   std::unique_ptr<AbstractPlanNode> scan_plan1;
   {
@@ -1543,7 +1543,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleNestedLoopJoinTest) {
 }
 
 // SELECT test_4.colA, test_4.colB, test_6.colA, test_6.colB FROM test_4 JOIN test_6 ON test_4.colA = test_6.colA
-TEST_F(ExecutorTest, DISABLED_NestedLoopJoin) {
+TEST_F(ExecutorTest, NestedLoopJoin) {
   // Construct sequential scan of table test_4
   const Schema *out_schema1{};
   std::unique_ptr<AbstractPlanNode> scan_plan1{};
@@ -1612,7 +1612,7 @@ TEST_F(ExecutorTest, DISABLED_NestedLoopJoin) {
 }
 
 // SELECT test_5.colA, test_5.colB, test_4.colA, test_4.colB FROM test_5 JOIN test_4 ON test_5.colA = test_4.colA
-TEST_F(ExecutorTest, DISABLED_NestedLoopJoinEmptyOuterTable) {
+TEST_F(ExecutorTest, NestedLoopJoinEmptyOuterTable) {
   // Construct sequential scan of table test_5
   const Schema *out_schema1{};
   std::unique_ptr<AbstractPlanNode> scan_plan1{};
@@ -1668,7 +1668,7 @@ TEST_F(ExecutorTest, DISABLED_NestedLoopJoinEmptyOuterTable) {
 }
 
 // SELECT test_4.colA, test_4.colB, test_5.colA, test_5.colB FROM test_4 JOIN test_5 ON test_4.colA = test_5.colA
-TEST_F(ExecutorTest, DISABLED_NestedLoopJoinEmptyInnerTable) {
+TEST_F(ExecutorTest, NestedLoopJoinEmptyInnerTable) {
   // Construct sequential scan of table test_4
   const Schema *out_schema1{};
   std::unique_ptr<AbstractPlanNode> scan_plan1{};
@@ -1724,7 +1724,7 @@ TEST_F(ExecutorTest, DISABLED_NestedLoopJoinEmptyInnerTable) {
 }
 
 // SELECT test_7.colA, test_7.colB, test_8.colA, test_8.colB FROM test_7 JOIN test_8 ON test_7.colC = test_8.colB
-TEST_F(ExecutorTest, DISABLED_NestedLoopJoinOuterTableDuplicateJoinKeys) {
+TEST_F(ExecutorTest, NestedLoopJoinOuterTableDuplicateJoinKeys) {
   // Construct sequential scan of table test_7
   const Schema *out_schema1{};
   std::unique_ptr<AbstractPlanNode> scan_plan1{};
@@ -1787,7 +1787,7 @@ TEST_F(ExecutorTest, DISABLED_NestedLoopJoinOuterTableDuplicateJoinKeys) {
 }
 
 // SELECT test_8.colA, test_8.colB, test_7.colA, test_7.colB FROM test_8 JOIN test_7 ON test_8.colB = test_7.colC
-TEST_F(ExecutorTest, DISABLED_NestedLoopJoinInnerTableDuplicateJoinKeys) {
+TEST_F(ExecutorTest, NestedLoopJoinInnerTableDuplicateJoinKeys) {
   // Construct sequential scan of table test_8
   const Schema *out_schema1{};
   std::unique_ptr<AbstractPlanNode> scan_plan1{};
@@ -1850,7 +1850,7 @@ TEST_F(ExecutorTest, DISABLED_NestedLoopJoinInnerTableDuplicateJoinKeys) {
 }
 
 // SELECT test_1.colA, test_1.colB, test_3.colA, test_3.colA FROM test_1 JOIN test_3 ON test_1.colA = test_3.colA;
-TEST_F(ExecutorTest, DISABLED_NestedLoopJoinIntegrated) {
+TEST_F(ExecutorTest, NestedLoopJoinIntegrated) {
   // SELECT colA, colB FROM test_1 WHERE colA < 50;
   const Schema *table1_schema;
   std::unique_ptr<AbstractPlanNode> table1_scan;
@@ -2993,7 +2993,7 @@ TEST_F(ExecutorTest, AggregationIntegrated2) {
 }
 
 // SELECT colA, colB FROM test_3 LIMIT 10
-TEST_F(ExecutorTest, DISABLED_SimpleLimitTest) {
+TEST_F(ExecutorTest, SimpleLimitTest) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_3");
   auto &schema = table_info->schema_;
 
@@ -3021,7 +3021,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleLimitTest) {
 }
 
 // SELECT colA, colB FROM test_3 LIMIT 10
-TEST_F(ExecutorTest, DISABLED_BasicLimit) {
+TEST_F(ExecutorTest, BasicLimit) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_3");
   auto &schema = table_info->schema_;
 
@@ -3049,7 +3049,7 @@ TEST_F(ExecutorTest, DISABLED_BasicLimit) {
 }
 
 // SELECT colA, colB FROM empty_table LIMIT 10
-TEST_F(ExecutorTest, DISABLED_LimitWithEmptyTable) {
+TEST_F(ExecutorTest, LimitWithEmptyTable) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("empty_table");
   auto &schema = table_info->schema_;
 
@@ -3071,7 +3071,7 @@ TEST_F(ExecutorTest, DISABLED_LimitWithEmptyTable) {
 }
 
 // SELECT colA, colB FROM test_3 WHERE colB > 500 LIMIT 10
-TEST_F(ExecutorTest, DISABLED_LimitWithNoneYieldedFromChild) {
+TEST_F(ExecutorTest, LimitWithNoneYieldedFromChild) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_3");
   auto &schema = table_info->schema_;
 
@@ -3097,7 +3097,7 @@ TEST_F(ExecutorTest, DISABLED_LimitWithNoneYieldedFromChild) {
 }
 
 // SELECT DISTINCT colC FROM test_7
-TEST_F(ExecutorTest, DISABLED_SimpleDistinctTest) {
+TEST_F(ExecutorTest, SimpleDistinctTest) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_7");
   auto &schema = table_info->schema_;
 
@@ -3132,7 +3132,7 @@ TEST_F(ExecutorTest, DISABLED_SimpleDistinctTest) {
   ASSERT_TRUE(std::equal(results.cbegin(), results.cend(), expected.cbegin()));
 }
 
-TEST_F(ExecutorTest, DISABLED_DistinctEmptyTable) {
+TEST_F(ExecutorTest, DistinctEmptyTable) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("empty_table");
   auto &schema = table_info->schema_;
 
@@ -3154,7 +3154,7 @@ TEST_F(ExecutorTest, DISABLED_DistinctEmptyTable) {
 }
 
 // SELECT DISTINCT colA FROM test_7
-TEST_F(ExecutorTest, DISABLED_DistinctWithoutDuplicates) {
+TEST_F(ExecutorTest, DistinctWithoutDuplicates) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_7");
   auto &schema = table_info->schema_;
 
@@ -3190,7 +3190,7 @@ TEST_F(ExecutorTest, DISABLED_DistinctWithoutDuplicates) {
 }
 
 // SELECT DISTINCT colC FROM test_7
-TEST_F(ExecutorTest, DISABLED_DistinctWithDuplicates) {
+TEST_F(ExecutorTest, DistinctWithDuplicates) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_7");
   auto &schema = table_info->schema_;
 
@@ -3226,7 +3226,7 @@ TEST_F(ExecutorTest, DISABLED_DistinctWithDuplicates) {
 }
 
 // SELECT DISTINCT colA, colC FROM test_7
-TEST_F(ExecutorTest, DISABLED_DistinctMultipleColumns) {
+TEST_F(ExecutorTest, DistinctMultipleColumns) {
   auto *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_7");
   auto &schema = table_info->schema_;
 
