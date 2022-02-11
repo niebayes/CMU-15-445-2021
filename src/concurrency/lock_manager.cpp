@@ -124,7 +124,7 @@ bool LockManager::LockShared(Transaction *txn, const RID &rid) {
   if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
     AbortTransaction(txn, rid);
     lock_queue.cv_.notify_all();
-    throw new TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCKSHARED_ON_READ_UNCOMMITTED);
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCKSHARED_ON_READ_UNCOMMITTED);
   }
 
   // enqueue a new lock request on this object. Not granted initially.
@@ -366,7 +366,7 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
   }
 
   // upgrade the shared lock.
-  assert(lock_request.lock_mode_ == LockMode::SHARED);
+  // assert(lock_request.lock_mode_ == LockMode::SHARED);
   lock_request.lock_mode_ = LockMode::EXCLUSIVE;
   txn->GetSharedLockSet()->erase(rid);
   txn->GetExclusiveLockSet()->emplace(rid);
@@ -376,11 +376,6 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
 
 bool LockManager::Unlock(Transaction *txn, const RID &rid) {
   assert(txn != nullptr);
-
-  // FIXME(bayes): Can a txn unlock when it has committed?
-  if (txn->GetState() == TransactionState::ABORTED) {
-    return false;
-  }
 
   std::unique_lock<std::mutex> lck{latch_};
 
