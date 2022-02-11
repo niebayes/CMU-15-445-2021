@@ -47,6 +47,7 @@ class LockManager {
 
   class LockRequestQueue {
    public:
+    // backed data structure.
     std::list<LockRequest> request_queue_;
     // for notifying blocked transactions on this rid
     std::condition_variable cv_;
@@ -112,11 +113,15 @@ class LockManager {
 
   bool CanUpgradeLock(Transaction *txn, const RID &rid);
 
+  void AbortTransaction(Transaction *txn, const RID &rid);
+
   // any txn requesting lock/unlock must access the lock table. To synchronize them, they have to acquire this latch
   // first, i.e. this latch protects the lock_table_.
   std::mutex latch_;
 
   /** Lock table for lock requests. */
+  /// the lock manager maintains a lock table, which is a k/v hash table in that keys are rids of objects and values are
+  /// lock requests currently on the objects.
   std::unordered_map<RID, LockRequestQueue> lock_table_;
 };
 

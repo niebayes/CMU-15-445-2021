@@ -46,28 +46,28 @@ enum class TransactionState { GROWING, SHRINKING, COMMITTED, ABORTED };
 /**
  * Transaction isolation level.
  */
-/// @bayes:
-/// interactions between concurrent txns:
-///   (1) other txns read committed data the current txn is accessing.
-///   (2) other txns read uncommitted data the current txn is accessing.
-///   (3) other txns update data the current txn is accessing.
-///   (4) other txns insert/delete data the current txn is accessing.
-///
 /// anomalies:
-///   dirty read        <- interaction (2).
-///   unrepeatable read <- interaction (3).
-///   phantom read      <- interaction (4).
+///   dirty writes: txn overwrites an uncommitted value.
+///   dirty reads: txn reads an uncommitted value.
+///   unrepeatable read (read skew): txn reads the same object multiple times but gets different values.
+///   phantom read (write skew): one txn's reads is interfered by another txn's writes.
 ///
 /// isolation levels:
 ///   restrict what interactions are allowed between concurrent txns.
-///   The more allowed, the more concurrency and hence the higher efficiency.
-///   But at the cost of lower isolation.
+///   The more allowed, the less anomalies, the more concurrency and hence the higher efficiency.
 ///
-///   READ_UNCOMMITTED: allow all interactions.              And hence all anomalies can occur.
-///   READ_COMMITTED  : disallow only interaction (2).       And hence dirty read would not occur.
-///   REPEATABLE_READ : disallow interactions (2), (3).      And hence only phantom read can occur.
-///   SERIALIZABLE    : disallow interactions (2), (3), (4). And hence no anomalies.
-enum class IsolationLevel { READ_UNCOMMITTED, REPEATABLE_READ, READ_COMMITTED };
+///   READ_UNCOMMITTED: no dirty writes.
+///   READ_COMMITTED  : + no dirty reads.
+///   REPEATABLE_READ : + no unrepeatable read.
+///   SERIALIZABLE    : + no phantom read.
+///
+/// concurrency control schemes:
+///
+///   READ_UNCOMMITTED: exclusive lock on writing.
+///   READ_COMMITTED  : hold exclusive lock on writing and release it until committed. shared lock on reading.
+///   REPEATABLE_READ : 2PL. only acquire lock in GROWING phase, and only release lock in SHRINKING phase. txn enters
+///                     the SHRINKING phase immediately after it releases its first lock.
+enum class IsolationLevel { READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ };
 
 /**
  * Type of write operation.
@@ -96,7 +96,7 @@ class TableWriteRecord {
 };
 
 /**
- * WriteRecord tracks information related to a write.
+ * IndexWriteRecord tracks information related to a write on a index.
  */
 class IndexWriteRecord {
  public:
@@ -125,10 +125,10 @@ class IndexWriteRecord {
  */
 enum class AbortReason {
   LOCK_ON_SHRINKING,
-  UNLOCK_ON_SHRINKING,
+  UNLOCK_ON_SHRINKING,  // FIXME(bayes): hold write locks until committed?
   UPGRADE_CONFLICT,
   DEADLOCK,
-  LOCKSHARED_ON_READ_UNCOMMITTED
+  LOCKSHARED_ON_READ_UNCOMMITTED  // READ_UNCOMMITTED only disallows dirty writes which only needs LOCKEXCLUSIVE.
 };
 
 /**
