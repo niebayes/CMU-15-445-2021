@@ -42,6 +42,8 @@ bool LockManager::CanGrantSharedLock(Transaction *txn, const RID &rid) {
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
   }
 
+  bool oldest{true};
+
   // collision checking: check if granting a lock to this txn may collide other txns.
   auto iter = lock_queue.request_queue_.begin();
   auto iter_end = lock_queue.request_queue_.end();
@@ -72,12 +74,6 @@ bool LockManager::CanGrantSharedLock(Transaction *txn, const RID &rid) {
       continue;
     }
 
-    // only consider txns holding the lock.
-    if (!lock_request.granted_) {
-      ++iter;
-      continue;
-    }
-
     // by wound-wait scheme, younger waits for old and old kills younger.
     if (txn_id < txn_id_other) {
       // abort the younger.
@@ -85,12 +81,12 @@ bool LockManager::CanGrantSharedLock(Transaction *txn, const RID &rid) {
       AbortTransaction(other_txn, rid);
       lock_queue.cv_.notify_all();
     } else {
-      // waits for old.
-      return false;
+      oldest = false;
+      ++iter;
     }
   }
 
-  return true;
+  return oldest;
 }
 
 /// @note: emplace vs. insert.
@@ -162,6 +158,8 @@ bool LockManager::CanGrantExclusiveLock(Transaction *txn, const RID &rid) {
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
   }
 
+  bool oldest{true};
+
   // collision checking: check if granting a lock to this txn may collide other txns.
   auto iter = lock_queue.request_queue_.begin();
   auto iter_end = lock_queue.request_queue_.end();
@@ -188,12 +186,6 @@ bool LockManager::CanGrantExclusiveLock(Transaction *txn, const RID &rid) {
 
     // either of shared or exclusive locks contends with exclusive lock.
 
-    // only consider txns holding the lock.
-    if (!lock_request.granted_) {
-      ++iter;
-      continue;
-    }
-
     // by wound-wait scheme, younger waits for old and old kills younger.
     if (txn_id < txn_id_other) {
       // abort the younger.
@@ -201,12 +193,12 @@ bool LockManager::CanGrantExclusiveLock(Transaction *txn, const RID &rid) {
       AbortTransaction(other_txn, rid);
       lock_queue.cv_.notify_all();
     } else {
-      // waits for old.
-      return false;
+      oldest = false;
+      ++iter;
     }
   }
 
-  return true;
+  return oldest;
 }
 
 bool LockManager::LockExclusive(Transaction *txn, const RID &rid) {
@@ -271,6 +263,8 @@ bool LockManager::CanUpgradeLock(Transaction *txn, const RID &rid) {
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
   }
 
+  bool oldest{true};
+
   // collision checking: check if granting a lock to this txn may collide other txns.
   auto iter = lock_queue.request_queue_.begin();
   auto iter_end = lock_queue.request_queue_.end();
@@ -313,12 +307,6 @@ bool LockManager::CanUpgradeLock(Transaction *txn, const RID &rid) {
 
     // either of shared or exclusive locks contends with exclusive lock.
 
-    // only consider txns holding the lock.
-    if (!lock_request.granted_) {
-      ++iter;
-      continue;
-    }
-
     // by wound-wait scheme, younger waits for old and old kills younger.
     if (txn_id < txn_id_other) {
       // abort the younger.
@@ -326,12 +314,12 @@ bool LockManager::CanUpgradeLock(Transaction *txn, const RID &rid) {
       AbortTransaction(other_txn, rid);
       lock_queue.cv_.notify_all();
     } else {
-      // waits for old.
-      return false;
+      oldest = false;
+      ++iter;
     }
   }
 
-  return true;
+  return oldest;
 }
 
 bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {

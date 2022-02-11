@@ -529,11 +529,12 @@ void WoundWaitBasicTest() {
   RID rid1{0, 1};
 
   std::mutex id_mutex;
-  size_t id_hold = 0;
-  size_t id_wait = 10;
-  size_t id_kill = 1;
+  size_t id_hold = 0;   // older holds.
+  size_t id_wait = 10;  // younger waits.
+  size_t id_kill = 1;   // kill the younger.
 
-  size_t num_wait = 10;
+  // size_t num_wait = 10;
+  size_t num_wait = 1;
   size_t num_kill = 1;
 
   std::vector<std::thread> wait_threads;
@@ -541,23 +542,29 @@ void WoundWaitBasicTest() {
 
   Transaction txn(id_hold);
   txn_mgr.Begin(&txn);
-  lock_mgr.LockExclusive(&txn, rid0);
-  lock_mgr.LockShared(&txn, rid1);
+  EXPECT_TRUE(lock_mgr.LockExclusive(&txn, rid0));
+  EXPECT_TRUE(lock_mgr.LockShared(&txn, rid1));
+  CheckTxnLockSize(&txn, 1, 1);
 
   auto wait_die_task = [&]() {
     id_mutex.lock();
     Transaction wait_txn(id_wait++);
     id_mutex.unlock();
+
+    std::cout << "wait starts\n";
+
     bool res;
     txn_mgr.Begin(&wait_txn);
     res = lock_mgr.LockShared(&wait_txn, rid1);
     EXPECT_TRUE(res);
     CheckGrowing(&wait_txn);
     CheckTxnLockSize(&wait_txn, 1, 0);
+
     try {
       res = lock_mgr.LockExclusive(&wait_txn, rid0);
       EXPECT_FALSE(res) << wait_txn.GetTransactionId() << "ERR";
     } catch (const TransactionAbortException &e) {
+      std::cout << e.what() << std::endl;
     } catch (const Exception &e) {
       EXPECT_TRUE(false) << "Test encountered exception" << e.what();
     }
@@ -565,6 +572,8 @@ void WoundWaitBasicTest() {
     CheckAborted(&wait_txn);
 
     txn_mgr.Abort(&wait_txn);
+
+    std::cout << "wait aborts\n";
   };
 
   // All transaction here should wait.
@@ -579,6 +588,8 @@ void WoundWaitBasicTest() {
   auto kill_task = [&]() {
     Transaction kill_txn(id_kill++);
 
+    std::cout << "kill starts\n";
+
     bool res;
     txn_mgr.Begin(&kill_txn);
     res = lock_mgr.LockShared(&kill_txn, rid1);
@@ -586,10 +597,14 @@ void WoundWaitBasicTest() {
     CheckGrowing(&kill_txn);
     CheckTxnLockSize(&kill_txn, 1, 0);
 
+    std::cout << "kill locks rid1\n";
+
     res = lock_mgr.LockShared(&kill_txn, rid0);
     EXPECT_TRUE(res);
     CheckGrowing(&kill_txn);
     CheckTxnLockSize(&kill_txn, 2, 0);
+
+    std::cout << "kill locks rid0\n";
 
     txn_mgr.Commit(&kill_txn);
     CheckCommitted(&kill_txn);
@@ -604,6 +619,8 @@ void WoundWaitBasicTest() {
     wait_threads[i].join();
   }
 
+  std::cout << "all waits are killed\n";
+
   CheckGrowing(&txn);
   txn_mgr.Commit(&txn);
   CheckCommitted(&txn);
@@ -611,6 +628,8 @@ void WoundWaitBasicTest() {
   for (size_t i = 0; i < num_kill; i++) {
     kill_threads[i].join();
   }
+
+  std::cout << "all done\n";
 }
 
 // Two threads, check if one will abort.
@@ -1038,7 +1057,7 @@ void FairnessTest2() {
  * Description: Check basic case if later txn will
  * die when it's waiting for previous txn is also waiting
  */
-TEST(LockManagerTest, DISABLED_WoundWaitTest) {
+TEST(LockManagerTest, WoundWaitTest) {
   for (size_t i = 0; i < NUM_ITERS; i++) {
     WoundWaitBasicTest();
   }
