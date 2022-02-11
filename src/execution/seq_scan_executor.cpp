@@ -24,7 +24,6 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
       plan_{plan},
       table_info_{exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())},
       table_it_{table_info_->table_->End()} {
-  /// FIXME(bayes): How can I properly init the table_it_?
   if (table_info_ == Catalog::NULL_TABLE_INFO) {
     throw Exception(ExceptionType::INVALID, "Table not found given the invalid table oid");
   }
@@ -35,11 +34,42 @@ void SeqScanExecutor::Init() {
   table_it_ = table_info_->table_->Begin(exec_ctx_->GetTransaction());
 }
 
+// true if the lock is granted.
+static bool TryLockShared(LockManager *lock_mgr, Transaction *txn, const RID &rid) {
+  // The lock manager is null in project 3.
+  if (lock_mgr == nullptr) {
+    return false;
+  }
+  //  READ_UNCOMMITTED only demands exclusive lock.
+  if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
+    return false;
+  }
+  // do not acquire the same lock twice.
+  if (txn->IsSharedLocked(rid) || txn->IsExclusiveLocked(rid)) {
+    return true;
+  }
+  return lock_mgr->LockShared(txn, rid);
+}
+
+static void TryUnlockShared(LockManager *lock_mgr, Transaction *txn, const RID &rid) {
+  // READ_UNCOMMITTED won't call this func. REPEATABLE_READ holds locks until commitment.
+  if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+    lock_mgr->Unlock(txn, rid);
+  }
+}
+
 bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
+  LockManager *lock_mgr = exec_ctx_->GetLockManager();
+  Transaction *txn = exec_ctx_->GetTransaction();
+  assert(txn != nullptr);
+
   // scan the table tuple by tuple and spit out the next tuple that satisfies the predicate.
   const AbstractExpression *predicate = plan_->GetPredicate();
 
   while (table_it_ != table_info_->table_->End()) {
+    // lock the tuple.
+    const bool locked = TryLockShared(lock_mgr, txn, table_it_->GetRid());
+
     bool flag{false};
     if (predicate == nullptr || predicate->Evaluate(&(*table_it_), &table_info_->schema_).GetAs<bool>()) {
       // found a tuple that satisfies the predicate.
@@ -59,12 +89,20 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
       //! the rid is the one associated with the input tuple.
       *rid = table_it_->GetRid();
 
+      if (locked) {
+        TryUnlockShared(lock_mgr, txn, table_it_->GetRid());
+      }
+
       // increment the iterator to prepare for the next Next call.
       ++table_it_;
 
       flag = true;
 
     } else {
+      if (locked) {
+        TryUnlockShared(lock_mgr, txn, table_it_->GetRid());
+      }
+
       // this tuple does not satisfy the predicate, proceed to the next tuple.
       ++table_it_;
     }

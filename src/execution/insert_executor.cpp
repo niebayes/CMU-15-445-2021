@@ -51,6 +51,9 @@ void InsertExecutor::Init() {
 }
 
 void InsertExecutor::UpdateIndexes(Tuple *tuple, RID *rid) {
+  Transaction *txn = exec_ctx_->GetTransaction();
+  assert(txn != nullptr);
+
   for (IndexInfo *index_info : table_indices_) {
     assert(index_info != Catalog::NULL_INDEX_INFO);
 
@@ -59,12 +62,20 @@ void InsertExecutor::UpdateIndexes(Tuple *tuple, RID *rid) {
                                           index_info->index_->GetKeyAttrs());
     // insert a new entry to the index.
     index_info->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
+
+    // update index write set.
+    IndexWriteRecord record(*rid, table_info_->oid_, WType::INSERT, *tuple, index_info->index_oid_,
+                            exec_ctx_->GetCatalog());
+    // transaction manager would process each record according its WType.
+    txn->GetIndexWriteSet()->emplace_back(record);
   }
 }
 
 // since Insert cannot modify result set, the insertion must be done in one run, i.e. it acts as a pipeline breaker.
 bool InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   assert(table_info_ != Catalog::NULL_TABLE_INFO);
+
+  // since the lock granularity is tuple-level, no need to lock during insertion.
 
   if (plan_->IsRawInsert()) {
     // it's a raw insert plan, insert the embeded raw values.

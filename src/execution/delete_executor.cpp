@@ -47,13 +47,43 @@ void DeleteExecutor::Init() {
   child_executor_->Init();
 }
 
+static bool TryLockExclusive(LockManager *lock_mgr, Transaction *txn, const RID &rid) {
+  if (lock_mgr == nullptr) {
+    return false;
+  }
+  if (txn->IsExclusiveLocked(rid)) {
+    return true;
+  }
+  if (txn->IsSharedLocked(rid)) {
+    return lock_mgr->LockUpgrade(txn, rid);
+  }
+  return false;
+}
+
+static void TryUnlockExclusive(LockManager *lock_mgr, Transaction *txn, const RID &rid) {
+  // REPEATABLE_READ holds locks until commitment.
+  if (txn->GetIsolationLevel() != IsolationLevel::REPEATABLE_READ) {
+    lock_mgr->Unlock(txn, rid);
+  }
+}
+
 bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
+  LockManager *lock_mgr = exec_ctx_->GetLockManager();
+  Transaction *txn = exec_ctx_->GetTransaction();
+  assert(txn != nullptr);
+
   // get the rid of the tuple to be deleted.
   while (child_executor_->Next(tuple, rid)) {
+    const bool locked = TryLockExclusive(lock_mgr, txn, *rid);
+
     const bool deleted = table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction());
     // if the delete marking succeeds, i.e. the tuple exists, also delete all corresponding indices.
     if (deleted) {
       DeleteIndexes(tuple, rid);
+    }
+
+    if (locked) {
+      TryUnlockExclusive(lock_mgr, txn, *rid);
     }
   }
 
@@ -62,6 +92,9 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
 }
 
 void DeleteExecutor::DeleteIndexes(Tuple *tuple, RID *rid) {
+  Transaction *txn = exec_ctx_->GetTransaction();
+  assert(txn != nullptr);
+
   for (IndexInfo *index_info : table_indexes_) {
     /// FIXME(bayes): What does the FIXME below mean?
     /// FIXME(bayes): Will the child executor also spit out the tuple?
@@ -70,6 +103,12 @@ void DeleteExecutor::DeleteIndexes(Tuple *tuple, RID *rid) {
         tuple->KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
     //! the rid is the one associated with the deleted tuple.
     index_info->index_->DeleteEntry(key, *rid, exec_ctx_->GetTransaction());
+
+    // update index write set.
+    IndexWriteRecord record(*rid, table_info_->oid_, WType::DELETE, *tuple, index_info->index_oid_,
+                            exec_ctx_->GetCatalog());
+    // transaction manager would process each record according its WType.
+    txn->GetIndexWriteSet()->emplace_back(record);
   }
 }
 

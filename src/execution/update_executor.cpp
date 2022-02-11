@@ -46,18 +46,49 @@ void UpdateExecutor::Init() {
   child_executor_->Init();
 }
 
+static bool TryLockExclusive(LockManager *lock_mgr, Transaction *txn, const RID &rid) {
+  if (lock_mgr == nullptr) {
+    return false;
+  }
+  if (txn->IsExclusiveLocked(rid)) {
+    return true;
+  }
+  if (txn->IsSharedLocked(rid)) {
+    return lock_mgr->LockUpgrade(txn, rid);
+  }
+  return false;
+}
+
+static void TryUnlockExclusive(LockManager *lock_mgr, Transaction *txn, const RID &rid) {
+  // REPEATABLE_READ holds locks until commitment.
+  if (txn->GetIsolationLevel() != IsolationLevel::REPEATABLE_READ) {
+    lock_mgr->Unlock(txn, rid);
+  }
+}
+
 bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
+  LockManager *lock_mgr = exec_ctx_->GetLockManager();
+  Transaction *txn = exec_ctx_->GetTransaction();
+  assert(txn != nullptr);
+
   // pull values from the child executor.
   while (child_executor_->Next(tuple, rid)) {
     assert(tuple != nullptr);
+
+    const bool locked = TryLockExclusive(lock_mgr, txn, *rid);
+
     Tuple old_tuple = *tuple;
     // generate the updated tuple from the old tuple given the update attributes.
     Tuple updated_tuple = GenerateUpdatedTuple(old_tuple);
-    // apply the update to the table.
+    // apply the update to the table. UpdateTuple will update write set for us.
     const bool updated = table_info_->table_->UpdateTuple(updated_tuple, *rid, exec_ctx_->GetTransaction());
     // if the update succeeds, also update the corresponding indexes.
     if (updated) {
       UpdateIndexes(std::move(old_tuple), std::move(updated_tuple), *rid);
+    }
+
+    if (locked) {
+      TryUnlockExclusive(lock_mgr, txn, *rid);
     }
   }
 
@@ -90,6 +121,9 @@ Tuple UpdateExecutor::GenerateUpdatedTuple(const Tuple &src_tuple) {
 }
 
 void UpdateExecutor::UpdateIndexes(Tuple &&old_tuple, Tuple &&updated_tuple, const RID &rid) {
+  Transaction *txn = exec_ctx_->GetTransaction();
+  assert(txn != nullptr);
+
   for (IndexInfo *index_info : table_indexes_) {
     assert(index_info != Catalog::NULL_INDEX_INFO);
 
@@ -103,6 +137,12 @@ void UpdateExecutor::UpdateIndexes(Tuple &&old_tuple, Tuple &&updated_tuple, con
     const Tuple updated_key =
         updated_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
     index_info->index_->InsertEntry(updated_key, rid, exec_ctx_->GetTransaction());
+
+    // update index write set.
+    IndexWriteRecord record(rid, table_info_->oid_, WType::UPDATE, updated_tuple, index_info->index_oid_,
+                            exec_ctx_->GetCatalog());
+    record.old_tuple_ = old_tuple;
+    txn->GetIndexWriteSet()->emplace_back(record);
   }
 }
 

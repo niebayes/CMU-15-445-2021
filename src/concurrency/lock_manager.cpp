@@ -369,7 +369,6 @@ bool LockManager::Unlock(Transaction *txn, const RID &rid) {
 
   // unlock must follow lock.
   if (lock_table_.count(rid) == 0) {
-    // FIXME(bayes): Shall I abort?
     return false;
   }
   LockRequestQueue &lock_queue = lock_table_.at(rid);
@@ -379,14 +378,15 @@ bool LockManager::Unlock(Transaction *txn, const RID &rid) {
     txn->SetState(TransactionState::SHRINKING);
   }
 
+  // remove all requests of this txn.
   auto iter = lock_queue.request_queue_.begin();
   auto iter_end = lock_queue.request_queue_.end();
   while (iter != iter_end) {
     if (iter->txn_id_ == txn->GetTransactionId()) {
-      lock_queue.request_queue_.erase(iter);
-      break;
+      iter = lock_queue.request_queue_.erase(iter);
+    } else {
+      ++iter;
     }
-    ++iter;
   }
 
   lock_queue.cv_.notify_all();
